@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-class ExamScheduleScreen extends StatelessWidget {
+class ExaminerFormScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(

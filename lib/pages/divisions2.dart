@@ -45,7 +45,7 @@ class _DivisionsState extends State<Divisions> {
                 1: buildSegment("Active"),
                 2: buildSegment("Deleted")
               },
-              thumbColor: Colors.deepPurple,
+              thumbColor: Colors.white,
               groupValue: value,
               onValueChanged: (newValue) {
                 setState(() {
@@ -63,7 +63,6 @@ class _DivisionsState extends State<Divisions> {
 
       // Floating Action Button for Creating a New Division
       floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: Colors.deepPurple,
         onPressed: () {
           Navigator.push(
             context,
@@ -96,7 +95,8 @@ class _DivisionsState extends State<Divisions> {
         "subjects": ["Economics", "Accounting", "Marketing", "Finance"],
         "createdBy": "Mr. John Doe",
         "createdDate": "01/04/2025",
-        "image": "https://via.placeholder.com/100", // Placeholder image
+        "image":
+            "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/97bdb826-4859-4cbb-b086-47b8e9fae57a", // Placeholder image
       },
       {
         "name": "Faculty of Management",
@@ -105,7 +105,8 @@ class _DivisionsState extends State<Divisions> {
         "subjects": ["Business", "Finance", "HR", "Management"],
         "createdBy": "Ms. Jane Smith",
         "createdDate": "05/04/2025",
-        "image": "https://via.placeholder.com/100",
+        "image":
+            "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/97bdb826-4859-4cbb-b086-47b8e9fae57a",
       },
     ];
 

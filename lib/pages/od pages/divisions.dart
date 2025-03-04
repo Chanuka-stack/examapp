@@ -1,7 +1,7 @@
 import 'package:app1/pages/home_screen.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'create_division.dart';
+import '../create_division.dart';
 
 class Divisions extends StatefulWidget {
   const Divisions({super.key});
