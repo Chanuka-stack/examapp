@@ -1,4 +1,5 @@
 import 'package:app1/pages/examiners.dart';
+import 'package:app1/pages/students.dart';
 import 'package:flutter/material.dart';
 import 'divisions2.dart';
 
@@ -100,8 +101,12 @@ class _HomeState extends State<Home> {
                 _buildButton(
                     "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/969a41a3-dd63-428a-bd76-490cb3db34b1",
                     'Students',
-                    buttonSize,
-                    () {}),
+                    buttonSize, () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => Students()),
+                  );
+                }),
                 _buildButton(
                     "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/969a41a3-dd63-428a-bd76-490cb3db34b1",
                     'Exams',

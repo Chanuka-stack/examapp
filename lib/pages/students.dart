@@ -1,15 +1,15 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'create_Examiner.dart';
+import 'create_student.dart';
 
-class Examiners extends StatefulWidget {
-  const Examiners({super.key});
+class Students extends StatefulWidget {
+  const Students({super.key});
 
   @override
-  State<Examiners> createState() => _ExaminersState();
+  State<Students> createState() => _StudentsState();
 }
 
-class _ExaminersState extends State<Examiners> {
+class _StudentsState extends State<Students> {
   int? value = 0;
 
   @override
@@ -23,7 +23,7 @@ class _ExaminersState extends State<Examiners> {
             Navigator.pop(context);
           },
         ),
-        title: const Text("Examiners"),
+        title: const Text("Students"),
         actions: [
           IconButton(
             icon: const Icon(Icons.search),
@@ -56,22 +56,22 @@ class _ExaminersState extends State<Examiners> {
           ),
           const SizedBox(height: 20),
 
-          // Examiner List
+          // Student List
           Expanded(child: getSelectedContent()),
         ],
       ),
 
-      // Floating Action Button for Creating a New Examiner
+      // Floating Action Button for Creating a New Student
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => ExaminerFormScreen()),
+            MaterialPageRoute(builder: (context) => StudentFormScreen()),
           );
         },
         icon: const Icon(Icons.add, color: Colors.white),
-        label: const Text("Create Examiner",
-            style: TextStyle(color: Colors.white)),
+        label:
+            const Text("Create Student", style: TextStyle(color: Colors.white)),
       ),
     );
   }
@@ -87,7 +87,7 @@ class _ExaminersState extends State<Examiners> {
 
   // Function to Filter Content Based on Selection
   Widget getSelectedContent() {
-    List<Map<String, dynamic>> allExaminers = [
+    List<Map<String, dynamic>> allStudents = [
       {
         "name": "Adam Gilichrist",
         "id": "EX000123",
@@ -111,33 +111,33 @@ class _ExaminersState extends State<Examiners> {
       },
     ];
 
-    List<Map<String, dynamic>> activeExaminers =
-        allExaminers.where((div) => div["status"] == "Active").toList();
-    List<Map<String, dynamic>> deletedExaminers = [];
+    List<Map<String, dynamic>> activeStudents =
+        allStudents.where((div) => div["status"] == "Active").toList();
+    List<Map<String, dynamic>> deletedStudents = [];
 
     List<Map<String, dynamic>> displayList;
     switch (value) {
       case 1:
-        displayList = activeExaminers;
+        displayList = activeStudents;
         break;
       case 2:
-        displayList = deletedExaminers;
+        displayList = deletedStudents;
         break;
       default:
-        displayList = allExaminers;
+        displayList = allStudents;
     }
 
     return ListView.builder(
       itemCount: displayList.length,
       itemBuilder: (context, index) {
-        var examiner = displayList[index];
-        return buildExaminerCard(examiner);
+        var Student = displayList[index];
+        return buildStudentCard(Student);
       },
     );
   }
 
-  // Examiner Card Widget
-  Widget buildExaminerCard(Map<String, dynamic> examiner) {
+  // Student Card Widget
+  Widget buildStudentCard(Map<String, dynamic> Student) {
     return Card(
       elevation: 3,
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -148,15 +148,15 @@ class _ExaminersState extends State<Examiners> {
           children: [
             Column(
               children: [
-                Text("Examiner (ID))",
+                Text("Student (ID))",
                     style: const TextStyle(color: Colors.black54)),
-                Text("\n${examiner["name"]}\n(${examiner["id"]})")
+                Text("\n${Student["name"]}\n(${Student["id"]})")
               ],
             ),
             Column(
               children: [
                 Text("Division", style: const TextStyle(color: Colors.black54)),
-                Text(examiner["division"])
+                Text(Student["division"])
               ],
             )
           ],
@@ -174,7 +174,7 @@ class _ExaminersState extends State<Examiners> {
                       children: [
                         Text("Email Address",
                             style: const TextStyle(color: Colors.black54)),
-                        Text(examiner["email"])
+                        Text(Student["email"])
                       ],
                     ),
                     SizedBox(
@@ -185,7 +185,7 @@ class _ExaminersState extends State<Examiners> {
                       children: [
                         Text("Contact Number",
                             style: const TextStyle(color: Colors.black54)),
-                        Text(examiner["mobile"])
+                        Text(Student["mobile"])
                       ],
                     )
                   ],
@@ -201,7 +201,7 @@ class _ExaminersState extends State<Examiners> {
                       children: [
                         Text("Created By",
                             style: const TextStyle(color: Colors.black54)),
-                        Text(examiner["createdBy"])
+                        Text(Student["createdBy"])
                       ],
                     ),
                     Column(
@@ -209,7 +209,7 @@ class _ExaminersState extends State<Examiners> {
                       children: [
                         Text("Created Date",
                             style: const TextStyle(color: Colors.black54)),
-                        Text(examiner["createdDate"])
+                        Text(Student["createdDate"])
                       ],
                     )
                   ],
@@ -225,15 +225,35 @@ class _ExaminersState extends State<Examiners> {
                           Text("Status",
                               style: const TextStyle(color: Colors.black54)),
                           Text(
-                            examiner["status"],
+                            Student["status"],
                             style: TextStyle(
-                              color: examiner["status"] == "Active"
+                              color: Student["status"] == "Active"
                                   ? Colors.green
                                   : Colors.red,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
                         ])
+                  ],
+                ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () {},
+                        child: const Text("More"),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: () {},
+                        child: const Text(
+                          "Reset Password",
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ],

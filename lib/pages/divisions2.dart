@@ -201,9 +201,7 @@ class _DivisionsState extends State<Divisions> {
                 Row(
                   children: [
                     Expanded(
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.deepPurple),
+                      child: FilledButton(
                         onPressed: () {},
                         child: const Text("View Examiners",
                             style: TextStyle(color: Colors.white)),

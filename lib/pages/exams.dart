@@ -1,15 +1,15 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'create_Examiner.dart';
+import 'create_exam.dart';
 
-class Examiners extends StatefulWidget {
-  const Examiners({super.key});
+class Exam extends StatefulWidget {
+  const Exam({super.key});
 
   @override
-  State<Examiners> createState() => _ExaminersState();
+  State<Exam> createState() => _ExamState();
 }
 
-class _ExaminersState extends State<Examiners> {
+class _ExamState extends State<Exam> {
   int? value = 0;
 
   @override
@@ -23,7 +23,7 @@ class _ExaminersState extends State<Examiners> {
             Navigator.pop(context);
           },
         ),
-        title: const Text("Examiners"),
+        title: const Text("Exams"),
         actions: [
           IconButton(
             icon: const Icon(Icons.search),
@@ -66,12 +66,11 @@ class _ExaminersState extends State<Examiners> {
         onPressed: () {
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => ExaminerFormScreen()),
+            MaterialPageRoute(builder: (context) => ExamFormScreen()),
           );
         },
         icon: const Icon(Icons.add, color: Colors.white),
-        label: const Text("Create Examiner",
-            style: TextStyle(color: Colors.white)),
+        label: const Text("Create Exam", style: TextStyle(color: Colors.white)),
       ),
     );
   }
@@ -87,44 +86,56 @@ class _ExaminersState extends State<Examiners> {
 
   // Function to Filter Content Based on Selection
   Widget getSelectedContent() {
-    List<Map<String, dynamic>> allExaminers = [
+    List<Map<String, dynamic>> allExam = [
       {
-        "name": "Adam Gilichrist",
-        "id": "EX000123",
+        "exam": "Sinhala Part II",
+        "date": "01/04/2025",
+        "time": "10.00AM - 12.00PM",
         "division": "FOA",
         "status": "Active",
-        "email": "adam123@gmail.com",
-        "mobile": "07512345678",
+        "subject": "Sinhala",
         "createdBy": "Mr. John Doe",
         "createdDate": "01/04/2025",
+        "students": [
+          "HS/2021/002",
+          "HS/2021/003",
+          "HS/2022/005",
+          "HS/2023/005"
+        ],
         // Placeholder image
       },
       {
-        "name": "Thilan Samaraweera",
-        "division": "FOM",
-        "id": "EX000173",
+        "exam": "Sinhala Part II",
+        "date": "01/04/2025",
+        "time": "10.00AM - 12.00PM",
+        "division": "FOA",
         "status": "Active",
-        "email": "samaraw@gmail.com",
-        "mobile": "07512345678",
-        "createdBy": "Ms. Jane Smith",
-        "createdDate": "05/04/2025",
+        "subject": "Sinhala",
+        "createdBy": "Mr. John Doe",
+        "createdDate": "01/04/2025",
+        "students": [
+          "HS/2021/002",
+          "HS/2021/003",
+          "HS/2022/005",
+          "HS/2023/005"
+        ],
       },
     ];
 
-    List<Map<String, dynamic>> activeExaminers =
-        allExaminers.where((div) => div["status"] == "Active").toList();
-    List<Map<String, dynamic>> deletedExaminers = [];
+    List<Map<String, dynamic>> activeExam =
+        allExam.where((exm) => exm["status"] == "Active").toList();
+    List<Map<String, dynamic>> deletedExam = [];
 
     List<Map<String, dynamic>> displayList;
     switch (value) {
       case 1:
-        displayList = activeExaminers;
+        displayList = activeExam;
         break;
       case 2:
-        displayList = deletedExaminers;
+        displayList = deletedExam;
         break;
       default:
-        displayList = allExaminers;
+        displayList = allExam;
     }
 
     return ListView.builder(
@@ -137,7 +148,7 @@ class _ExaminersState extends State<Examiners> {
   }
 
   // Examiner Card Widget
-  Widget buildExaminerCard(Map<String, dynamic> examiner) {
+  Widget buildExaminerCard(Map<String, dynamic> exam) {
     return Card(
       elevation: 3,
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -148,15 +159,14 @@ class _ExaminersState extends State<Examiners> {
           children: [
             Column(
               children: [
-                Text("Examiner (ID))",
-                    style: const TextStyle(color: Colors.black54)),
-                Text("\n${examiner["name"]}\n(${examiner["id"]})")
+                Text("Exam", style: const TextStyle(color: Colors.black54)),
+                Text(exam["exam"])
               ],
             ),
             Column(
               children: [
-                Text("Division", style: const TextStyle(color: Colors.black54)),
-                Text(examiner["division"])
+                Text("Date", style: const TextStyle(color: Colors.black54)),
+                Text(exam["date"])
               ],
             )
           ],
@@ -172,9 +182,9 @@ class _ExaminersState extends State<Examiners> {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text("Email Address",
+                        Text("Time",
                             style: const TextStyle(color: Colors.black54)),
-                        Text(examiner["email"])
+                        Text(exam["time"])
                       ],
                     ),
                     SizedBox(
@@ -183,9 +193,9 @@ class _ExaminersState extends State<Examiners> {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text("Contact Number",
+                        Text("Subject",
                             style: const TextStyle(color: Colors.black54)),
-                        Text(examiner["mobile"])
+                        Text(exam["subject"])
                       ],
                     )
                   ],
@@ -199,17 +209,25 @@ class _ExaminersState extends State<Examiners> {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text("Created By",
+                        Text("Division",
                             style: const TextStyle(color: Colors.black54)),
-                        Text(examiner["createdBy"])
+                        Text(exam["division"])
                       ],
                     ),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text("Created Date",
+                        Text("Status",
                             style: const TextStyle(color: Colors.black54)),
-                        Text(examiner["createdDate"])
+                        Text(
+                          exam["status"],
+                          style: TextStyle(
+                            color: exam["status"] == "Active"
+                                ? Colors.green
+                                : Colors.red,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        )
                       ],
                     )
                   ],
@@ -217,25 +235,42 @@ class _ExaminersState extends State<Examiners> {
                 SizedBox(
                   height: 16,
                 ),
+                const Text("Enrolled Students",
+                    style: TextStyle(fontWeight: FontWeight.bold)),
+                Wrap(
+                  spacing: 8,
+                  children: exam["students"]
+                      .map<Widget>((student) => Chip(
+                            label: Text(student),
+                          ))
+                      .toList(),
+                ),
+                const SizedBox(height: 10),
+                SizedBox(
+                  height: 16,
+                ),
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text("Status",
-                              style: const TextStyle(color: Colors.black54)),
-                          Text(
-                            examiner["status"],
-                            style: TextStyle(
-                              color: examiner["status"] == "Active"
-                                  ? Colors.green
-                                  : Colors.red,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ])
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text("Created By",
+                            style: const TextStyle(color: Colors.black54)),
+                        Text(exam["createdBy"])
+                      ],
+                    ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text("Created Date",
+                            style: const TextStyle(color: Colors.black54)),
+                        Text(exam["createdDate"])
+                      ],
+                    )
                   ],
                 ),
+                const SizedBox(height: 10),
               ],
             ),
           ),
