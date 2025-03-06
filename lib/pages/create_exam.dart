@@ -12,10 +12,11 @@ class _ExamFormScreenState extends State<ExamFormScreen> {
   final TextEditingController _startTimeController = TextEditingController();
   final TextEditingController _endTimeController = TextEditingController();
 
+  List<String> students = [];
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text("Multi-Step Form")),
+      appBar: AppBar(title: Text("Create New Exam")),
       body: Stepper(
         type: StepperType.vertical,
         currentStep: _currentStep,
@@ -93,7 +94,38 @@ class _ExamFormScreenState extends State<ExamFormScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildDropdown("Students", ["AR/21/3638", "AR/21/3639"]),
+        Wrap(
+          spacing: 8.0,
+          children: students.map((subject) {
+            return Chip(
+              label: Text(subject),
+              onDeleted: () {
+                setState(() {
+                  students.remove(subject);
+                });
+              },
+            );
+          }).toList(),
+        ),
+        DropdownButtonFormField<String>(
+          decoration: InputDecoration(
+            border: OutlineInputBorder(),
+          ),
+          hint: const Text("Add a subject"),
+          onChanged: (value) {
+            if (value != null && !students.contains(value)) {
+              setState(() {
+                students.add(value);
+              });
+            }
+          },
+          items: [
+            "HS/2020/0012",
+            "HS/2020/0045",
+            "HS/2020/0712",
+            "HS/2020/4012"
+          ].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+        ),
         _buildButtons(),
       ],
     );
@@ -102,7 +134,9 @@ class _ExamFormScreenState extends State<ExamFormScreen> {
   Widget _buildGuidelinesForm() {
     return Column(
       children: [
-        Text("Add guidelines here..."),
+        _buildTextField("Number of Section", _nameController),
+        _buildTextField("Total Marks", _nameController),
+        _buildTextField("Exam Guidelines", _nameController),
         _buildButtons(),
       ],
     );
@@ -208,24 +242,38 @@ class _ExamFormScreenState extends State<ExamFormScreen> {
     return Column(
       children: [
         SizedBox(height: 20),
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.blue,
-            padding: EdgeInsets.symmetric(vertical: 12),
-            textStyle: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        SizedBox(
+          width: double.infinity, // Make the button take full width
+          child: FilledButton(
+            onPressed: () {
+              if (_currentStep < 3) {
+                setState(() {
+                  _currentStep++;
+                });
+              }
+            },
+            style: FilledButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 32),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(4), // Small border radius
+              ),
+            ),
+            child: const Text("Next"),
           ),
-          onPressed: () {
-            if (_currentStep < 3) {
-              setState(() {
-                _currentStep++;
-              });
-            }
-          },
-          child: Center(child: Text("Next")),
         ),
-        TextButton(
-          onPressed: () {},
-          child: Text("Save as Draft"),
+        SizedBox(height: 20),
+        SizedBox(
+          width: double.infinity, // Make the button take full width
+          child: OutlinedButton(
+            onPressed: () {},
+            style: FilledButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 32),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(4), // Small border radius
+              ),
+            ),
+            child: Text("Save as Draft"),
+          ),
         ),
       ],
     );
