@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'create_exam.dart';
+import 'question_form_screen.dart';
 
 class Exam extends StatefulWidget {
   const Exam({super.key});
@@ -66,7 +67,8 @@ class _ExamState extends State<Exam> {
         onPressed: () {
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => ExamFormScreen()),
+            //MaterialPageRoute(builder: (context) => ExamFormScreen()),
+            MaterialPageRoute(builder: (context) => QuestionFormScreen()),
           );
         },
         icon: const Icon(Icons.add, color: Colors.white),
