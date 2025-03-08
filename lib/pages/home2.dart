@@ -12,6 +12,7 @@ class Home extends StatefulWidget {
 }
 
 class _HomeState extends State<Home> {
+  String userRole = 'superadmin';
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -24,13 +25,17 @@ class _HomeState extends State<Home> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                _buildIconButton(
-                    context, Icons.apartment, "Divisions", const Divisions()),
-                _buildIconButton(context, Icons.account_circle, "Examiners",
-                    const Examiners()),
-                _buildIconButton(
-                    context, Icons.school, "Students", const Students()),
-                _buildIconButton(context, Icons.book, "Exams", const Exam()),
+                if (userRole == 'superadmin')
+                  _buildIconButton(
+                      context, Icons.apartment, "Divisions", const Divisions()),
+                if (userRole == 'superadmin')
+                  _buildIconButton(context, Icons.account_circle, "Examiners",
+                      const Examiners()),
+                if (userRole == 'superadmin' || userRole == 'admin')
+                  _buildIconButton(
+                      context, Icons.school, "Students", const Students()),
+                if (userRole == 'superadmin' || userRole == 'admin')
+                  _buildIconButton(context, Icons.book, "Exams", const Exam()),
               ],
             ),
           ),

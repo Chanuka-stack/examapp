@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'create_exam.dart';
 import 'question_form_screen.dart';
+import 'questions_bulk_upload.dart';
 
 class Exam extends StatefulWidget {
   const Exam({super.key});
@@ -69,6 +70,7 @@ class _ExamState extends State<Exam> {
             context,
             //MaterialPageRoute(builder: (context) => ExamFormScreen()),
             MaterialPageRoute(builder: (context) => QuestionFormScreen()),
+            //MaterialPageRoute(builder: (context) => QuestionsBulkUpload()),
           );
         },
         icon: const Icon(Icons.add, color: Colors.white),
@@ -273,6 +275,74 @@ class _ExamState extends State<Exam> {
                   ],
                 ),
                 const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () {
+                          showCupertinoModalPopup(
+                            context: context,
+                            builder: (BuildContext context) {
+                              return CupertinoActionSheet(
+                                //title: const Text("More Options"),
+                                //message: const Text("Select an action"),
+                                actions: [
+                                  CupertinoActionSheetAction(
+                                    onPressed: () {
+                                      Navigator.pop(context);
+                                      // Perform some action
+                                    },
+                                    child: const Text("View Submissions"),
+                                  ),
+                                  CupertinoActionSheetAction(
+                                    onPressed: () {
+                                      Navigator.pop(context);
+                                      // Perform some action
+                                    },
+                                    child: const Text("Edit"),
+                                  ),
+                                  CupertinoActionSheetAction(
+                                    onPressed: () {
+                                      Navigator.pop(context);
+                                      // Perform some action
+                                    },
+                                    child: const Text("View Password"),
+                                  ),
+                                  CupertinoActionSheetAction(
+                                    onPressed: () {
+                                      Navigator.pop(context);
+                                      // Perform some action
+                                    },
+                                    isDestructiveAction: true,
+                                    child: const Text("Delete"),
+                                  ),
+                                ],
+                                /*cancelButton: CupertinoActionSheetAction(
+                                  isDefaultAction: true,
+                                  onPressed: () {
+                                    Navigator.pop(context);
+                                  },
+                                  child: const Text("Cancel"),
+                                ),*/
+                              );
+                            },
+                          );
+                        },
+                        child: const Text("More"),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: () {},
+                        child: const Text(
+                          "View Submissions",
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),

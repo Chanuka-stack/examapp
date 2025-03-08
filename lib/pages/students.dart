@@ -240,7 +240,55 @@ class _StudentsState extends State<Students> {
                   children: [
                     Expanded(
                       child: OutlinedButton(
-                        onPressed: () {},
+                        onPressed: () {
+                          showCupertinoModalPopup(
+                            context: context,
+                            builder: (BuildContext context) {
+                              return CupertinoActionSheet(
+                                //title: const Text("More Options"),
+                                //message: const Text("Select an action"),
+                                actions: [
+                                  CupertinoActionSheetAction(
+                                    onPressed: () {
+                                      Navigator.pop(context);
+                                      // Perform some action
+                                    },
+                                    child: const Text("View Submissions"),
+                                  ),
+                                  CupertinoActionSheetAction(
+                                    onPressed: () {
+                                      Navigator.pop(context);
+                                      // Perform some action
+                                    },
+                                    child: const Text("Edit"),
+                                  ),
+                                  CupertinoActionSheetAction(
+                                    onPressed: () {
+                                      Navigator.pop(context);
+                                      // Perform some action
+                                    },
+                                    child: const Text("View Password"),
+                                  ),
+                                  CupertinoActionSheetAction(
+                                    onPressed: () {
+                                      Navigator.pop(context);
+                                      // Perform some action
+                                    },
+                                    isDestructiveAction: true,
+                                    child: const Text("Delete"),
+                                  ),
+                                ],
+                                /*cancelButton: CupertinoActionSheetAction(
+                                  isDefaultAction: true,
+                                  onPressed: () {
+                                    Navigator.pop(context);
+                                  },
+                                  child: const Text("Cancel"),
+                                ),*/
+                              );
+                            },
+                          );
+                        },
                         child: const Text("More"),
                       ),
                     ),

@@ -59,6 +59,13 @@ class _QuestionFormScreenState extends State<QuestionFormScreen> {
             return ExpansionTile(
               title: Text(question["title"]),
               children: [
+                const Text("Contact Number *",
+                    style: TextStyle(fontWeight: FontWeight.bold)),
+                TextFormField(
+                  decoration: InputDecoration(
+                    border: OutlineInputBorder(),
+                  ),
+                ),
                 Row(
                   children: [
                     Expanded(

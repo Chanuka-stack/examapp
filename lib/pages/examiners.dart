@@ -236,6 +236,77 @@ class _ExaminersState extends State<Examiners> {
                         ])
                   ],
                 ),
+                SizedBox(
+                  height: 16,
+                ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () {
+                          showCupertinoModalPopup(
+                            context: context,
+                            builder: (BuildContext context) {
+                              return CupertinoActionSheet(
+                                //title: const Text("More Options"),
+                                //message: const Text("Select an action"),
+                                actions: [
+                                  CupertinoActionSheetAction(
+                                    onPressed: () {
+                                      Navigator.pop(context);
+                                      // Perform some action
+                                    },
+                                    child: const Text("View Submissions"),
+                                  ),
+                                  CupertinoActionSheetAction(
+                                    onPressed: () {
+                                      Navigator.pop(context);
+                                      // Perform some action
+                                    },
+                                    child: const Text("Edit"),
+                                  ),
+                                  CupertinoActionSheetAction(
+                                    onPressed: () {
+                                      Navigator.pop(context);
+                                      // Perform some action
+                                    },
+                                    child: const Text("View Password"),
+                                  ),
+                                  CupertinoActionSheetAction(
+                                    onPressed: () {
+                                      Navigator.pop(context);
+                                      // Perform some action
+                                    },
+                                    isDestructiveAction: true,
+                                    child: const Text("Delete"),
+                                  ),
+                                ],
+                                /*cancelButton: CupertinoActionSheetAction(
+                                  isDefaultAction: true,
+                                  onPressed: () {
+                                    Navigator.pop(context);
+                                  },
+                                  child: const Text("Cancel"),
+                                ),*/
+                              );
+                            },
+                          );
+                        },
+                        child: const Text("More"),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: () {},
+                        child: const Text(
+                          "Reset Password",
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),

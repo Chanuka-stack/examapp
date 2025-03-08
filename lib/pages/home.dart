@@ -12,6 +12,7 @@ class Home extends StatefulWidget {
 
 class _HomeState extends State<Home> {
   // A list of items with image URLs and descriptions
+  String userRole = 'superadmin';
   final List<Map<String, String>> items = [
     {
       'image':
@@ -78,40 +79,44 @@ class _HomeState extends State<Home> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly, // Space evenly
               children: [
-                _buildButton(
-                  "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/1827f470-13cc-44b5-a6c9-7436d2451cfe",
-                  'Divisions',
-                  buttonSize,
-                  () {
+                if (userRole == 'superadmin')
+                  _buildButton(
+                    "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/1827f470-13cc-44b5-a6c9-7436d2451cfe",
+                    'Divisions',
+                    buttonSize,
+                    () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => Divisions()),
+                      );
+                    },
+                  ),
+                if (userRole == 'superadmin')
+                  _buildButton(
+                      "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/021dda6b-8414-4f54-a7bc-6ae357a02aa8",
+                      'Examiners',
+                      buttonSize, () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (context) => Divisions()),
+                      MaterialPageRoute(builder: (context) => Examiners()),
                     );
-                  },
-                ),
-                _buildButton(
-                    "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/021dda6b-8414-4f54-a7bc-6ae357a02aa8",
-                    'Examiners',
-                    buttonSize, () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => Examiners()),
-                  );
-                }),
-                _buildButton(
-                    "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/969a41a3-dd63-428a-bd76-490cb3db34b1",
-                    'Students',
-                    buttonSize, () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => Students()),
-                  );
-                }),
-                _buildButton(
-                    "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/969a41a3-dd63-428a-bd76-490cb3db34b1",
-                    'Exams',
-                    buttonSize,
-                    () {}),
+                  }),
+                if (userRole == 'superadmin')
+                  _buildButton(
+                      "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/969a41a3-dd63-428a-bd76-490cb3db34b1",
+                      'Students',
+                      buttonSize, () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => Students()),
+                    );
+                  }),
+                if (userRole == 'superadmin')
+                  _buildButton(
+                      "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/969a41a3-dd63-428a-bd76-490cb3db34b1",
+                      'Exams',
+                      buttonSize,
+                      () {}),
               ],
             ),
             // Add a vertical space between the buttons and the list
