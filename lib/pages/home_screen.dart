@@ -3,6 +3,7 @@ import 'calander.dart';
 import 'notifications.dart';
 import 'settings.dart';
 import 'home2.dart';
+import '../services/auth_services.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -34,12 +35,21 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
         actions: [
-          IconButton(
+          /*IconButton(
             icon: Icon(Icons.account_circle, size: 30),
             onPressed: () {
               // Handle profile button tap
             },
-          ),
+            
+          ),*/
+          IconButton(
+            icon: Icon(Icons.logout, size: 30),
+            onPressed: () async {
+              // Handle profile button tap
+              await AuthService().signout(context: context);
+            },
+            color: Colors.blueAccent,
+          )
         ],
       ),
       body: Center(

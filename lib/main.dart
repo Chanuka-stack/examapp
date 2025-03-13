@@ -6,8 +6,14 @@ import 'pages/homeTest.dart';
 import 'pages/create_student.dart';
 import 'pages/create_division.dart';
 import 'pages/components/audio_button.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
   runApp(MainApp());
 }
 

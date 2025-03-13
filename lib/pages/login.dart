@@ -1,6 +1,7 @@
 import 'package:app1/pages/home_screen.dart';
 import 'package:flutter/material.dart';
 import 'register.dart';
+import '../services/auth_services.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -21,9 +22,13 @@ class LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
-  void _submitForm() {
+  void _submitForm() async {
     if (_formKey.currentState!.validate()) {
       // Normally you would handle login logic here
+      await AuthService().signin(
+          email: _emailController.text,
+          password: _passwordController.text,
+          context: context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Processing login for ${_emailController.text}'),
@@ -111,9 +116,11 @@ class LoginPageState extends State<LoginPage> {
                 const SizedBox(height: 24),
                 FilledButton(
                   //onPressed: _submitForm,
-                  onPressed: () {
-                    Navigator.push(context,
-                        MaterialPageRoute(builder: (context) => HomeScreen()));
+                  onPressed: () async {
+                    await AuthService().signin(
+                        email: _emailController.text,
+                        password: _passwordController.text,
+                        context: context);
                   },
                   style: FilledButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
@@ -131,7 +138,7 @@ class LoginPageState extends State<LoginPage> {
                   child: const Text('Forgot Password?'),
                 ),
                 const SizedBox(height: 24),
-                Row(
+                /*Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     const Text("Don't have an account? "),
@@ -146,7 +153,7 @@ class LoginPageState extends State<LoginPage> {
                       child: const Text('Sign Up'),
                     ),
                   ],
-                ),
+                ),*/
               ],
             ),
           ),

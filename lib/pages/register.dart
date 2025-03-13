@@ -1,5 +1,6 @@
 import 'package:app1/pages/login.dart';
 import 'package:flutter/material.dart';
+import '../services/auth_services.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -25,15 +26,19 @@ class RegisterPageState extends State<RegisterPage> {
     super.dispose();
   }
 
-  void _submitForm() {
+  void _submitForm() async {
     if (_formKey.currentState!.validate()) {
-      // Normally you would handle registration logic here
-      ScaffoldMessenger.of(context).showSnackBar(
+      await AuthService().signup(
+          email: _emailController.text,
+          password: _passwordController.text,
+          context:
+              context); // Normally you would handle registration logic here
+      /*ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Registration successful for ${_emailController.text}'),
           backgroundColor: Colors.green,
         ),
-      );
+      );*/
 
       // Navigate to login page after successful registration
       Navigator.pushReplacement(
