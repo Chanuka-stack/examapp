@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'questions_bulk_upload.dart';
+import 'dart:io';
+import 'package:file_picker/file_picker.dart';
 
 class ExamFormScreen extends StatefulWidget {
   @override
@@ -11,6 +14,12 @@ class _ExamFormScreenState extends State<ExamFormScreen> {
   final TextEditingController _examDateController = TextEditingController();
   final TextEditingController _startTimeController = TextEditingController();
   final TextEditingController _endTimeController = TextEditingController();
+
+  // Added for questions section
+  List<Map<String, dynamic>> questions = [];
+  String fileContent = '';
+  TextEditingController fileContentController = TextEditingController();
+  bool isFileImported = false;
 
   List<String> students = [];
   @override
@@ -142,10 +151,246 @@ class _ExamFormScreenState extends State<ExamFormScreen> {
     );
   }
 
+  // New function to import a file
+  Future<void> _importFile() async {
+    FilePickerResult? result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['txt'],
+    );
+
+    if (result != null) {
+      File file = File(result.files.single.path!);
+      String content = await file.readAsString();
+
+      setState(() {
+        fileContent = content;
+        fileContentController.text = content;
+        isFileImported = true;
+      });
+    }
+  }
+
+  // New function to process the file content
+  void _processFileContent() {
+    // Here you could implement logic to parse the file content into questions
+    // For example:
+    List<String> lines = fileContentController.text.split("\n");
+    List<Map<String, dynamic>> newQuestions = [];
+    Map<String, dynamic>? currentQuestion;
+
+    for (String line in lines) {
+      line = line.trim();
+      if (line.startsWith("Q:")) {
+        currentQuestion = {
+          "title": line.substring(2).trim(),
+          "subquestions": []
+        };
+        newQuestions.add(currentQuestion);
+      } else if (line.startsWith("-") && currentQuestion != null) {
+        currentQuestion["subquestions"].add(line.substring(1).trim());
+      }
+    }
+
+    setState(() {
+      questions = newQuestions;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('${newQuestions.length} questions processed')),
+    );
+  }
+
+  // New function to add a new question
+  void _addNewQuestion() {
+    setState(() {
+      questions.add(
+          {"title": "Question ${questions.length + 1}", "subquestions": []});
+    });
+  }
+
+  // New function to add a subquestion
+  void _addNewSubquestion(int index) {
+    setState(() {
+      questions[index]["subquestions"]
+          .add("Subquestion ${questions[index]["subquestions"].length + 1}");
+    });
+  }
+
   Widget _buildQuestionsForm() {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text("Add questions here..."),
+        // File import section
+        Card(
+          elevation: 2,
+          child: Padding(
+            padding: EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Import Questions from File",
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: _importFile,
+                        icon: Icon(Icons.upload_file),
+                        label: Text("Import File"),
+                        style: FilledButton.styleFrom(
+                          padding: EdgeInsets.symmetric(vertical: 12),
+                        ),
+                      ),
+                    ),
+                    SizedBox(width: 16),
+                    if (isFileImported)
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: _processFileContent,
+                          icon: Icon(Icons.check),
+                          label: Text("Process Content"),
+                          style: ElevatedButton.styleFrom(
+                            padding: EdgeInsets.symmetric(vertical: 12),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                if (isFileImported) ...[
+                  SizedBox(height: 16),
+                  Text(
+                    "Imported Content (Edit as needed):",
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  SizedBox(height: 8),
+                  Container(
+                    height: 200,
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey.shade300),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: TextField(
+                      controller: fileContentController,
+                      maxLines: null,
+                      expands: true,
+                      decoration: InputDecoration(
+                        contentPadding: EdgeInsets.all(12),
+                        hintText: "Edit the imported content here...",
+                        border: InputBorder.none,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+
+        SizedBox(height: 24),
+
+        // Manual question section
+        Center(
+          child: FilledButton(
+            onPressed: _addNewQuestion,
+            style: FilledButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 32),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+            child: Text("Add New Question"),
+          ),
+        ),
+
+        SizedBox(height: 16),
+
+        // Questions list
+        ...questions.asMap().entries.map((entry) {
+          int questionIndex = entry.key;
+          var question = entry.value;
+
+          return ExpansionTile(
+            title: Text(question["title"]),
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(0),
+                child: TextFormField(
+                  initialValue: question["title"],
+                  decoration: InputDecoration(
+                    labelText: "Question Text",
+                    border: OutlineInputBorder(),
+                  ),
+                  onChanged: (value) {
+                    setState(() {
+                      question["title"] = value;
+                    });
+                  },
+                ),
+              ),
+              Column(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  ElevatedButton(
+                    onPressed: () => _addNewSubquestion(questionIndex),
+                    child: Text("Add Subquestion"),
+                  ),
+                  ElevatedButton(
+                    onPressed: () {
+                      setState(() {
+                        questions.removeAt(questionIndex);
+                      });
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red.shade100,
+                      foregroundColor: Colors.red.shade900,
+                    ),
+                    child: Text("Delete Question"),
+                  ),
+                ],
+              ),
+              ...question["subquestions"]
+                  .asMap()
+                  .entries
+                  .map<Widget>((subEntry) {
+                int subIndex = subEntry.key;
+                String subquestion = subEntry.value;
+
+                return ListTile(
+                  title: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8.0),
+                    child: TextFormField(
+                      initialValue: subquestion,
+                      decoration: InputDecoration(
+                        labelText: "Subquestion ${subIndex + 1}",
+                        border: OutlineInputBorder(),
+                        suffixIcon: IconButton(
+                          icon: Icon(Icons.delete_outline, color: Colors.red),
+                          onPressed: () {
+                            setState(() {
+                              question["subquestions"].removeAt(subIndex);
+                            });
+                          },
+                        ),
+                      ),
+                      onChanged: (value) {
+                        setState(() {
+                          question["subquestions"][subIndex] = value;
+                        });
+                      },
+                    ),
+                  ),
+                );
+              }).toList(),
+            ],
+          );
+        }).toList(),
+
         _buildButtons(),
       ],
     );

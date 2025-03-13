@@ -1,9 +1,11 @@
+import 'package:app1/pages/login.dart';
 import 'package:flutter/material.dart';
 import 'pages/home_screen.dart';
 import 'pages/od pages/divisions.dart';
 import 'pages/homeTest.dart';
 import 'pages/create_student.dart';
 import 'pages/create_division.dart';
+import 'pages/components/audio_button.dart';
 
 void main() {
   runApp(MainApp());
@@ -20,8 +22,8 @@ class MainApp extends StatelessWidget {
             ColorScheme.fromSeed(seedColor: Colors.blue), // Change theme color
         useMaterial3: true, // Enables Material 3 styling
       ),
-      home: HomeScreen(),
-      //home: Divisions(),
+      home: LoginPage(),
+      //home: Center(child: AudioRecordButton()),
     );
   }
 }
