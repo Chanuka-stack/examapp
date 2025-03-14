@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'divisions2.dart';
 import 'examiners.dart';
 import 'students.dart';
+import 'package:app1/data/user.dart';
 
 class Home extends StatefulWidget {
   const Home({super.key});
@@ -12,7 +13,22 @@ class Home extends StatefulWidget {
 }
 
 class _HomeState extends State<Home> {
-  String userRole = 'superadmin';
+  UserL user = UserL();
+  String userRole = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchUserRole();
+  }
+
+  Future<void> _fetchUserRole() async {
+    String role = await user.getUserRole();
+    setState(() {
+      userRole = role;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(

@@ -1,3 +1,4 @@
+import 'package:app1/data/user.dart';
 import 'package:app1/pages/examiners.dart';
 import 'package:app1/pages/students.dart';
 import 'package:flutter/material.dart';
@@ -12,7 +13,23 @@ class Home extends StatefulWidget {
 
 class _HomeState extends State<Home> {
   // A list of items with image URLs and descriptions
-  String userRole = 'superadmin';
+  //String userRole = 'superadmin';
+  UserL user = UserL();
+  String userRole = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchUserRole();
+  }
+
+  Future<void> _fetchUserRole() async {
+    String role = await user.getUserRole();
+    setState(() {
+      userRole = role;
+    });
+  }
+
   final List<Map<String, String>> items = [
     {
       'image':

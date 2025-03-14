@@ -1,3 +1,4 @@
+import 'package:app1/pages/create_new_password.dart';
 import 'package:flutter/material.dart';
 
 class SettingsPage extends StatefulWidget {
@@ -11,7 +12,16 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Text('Settings'),
-    );
+        body: ListView(
+      children: [
+        ListTile(
+          title: Text('Create New Password'),
+          onTap: () {
+            Navigator.push(context,
+                MaterialPageRoute(builder: (context) => CreatePassword()));
+          },
+        )
+      ],
+    ));
   }
 }

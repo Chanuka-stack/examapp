@@ -1,8 +1,12 @@
+import 'dart:ffi';
+
 import 'package:app1/pages/login.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import '../pages/home_screen.dart';
+import '../data/user.dart';
+import '../pages/create_new_password.dart';
 
 class AuthService {
   Future<void> signup(
@@ -14,6 +18,7 @@ class AuthService {
           .createUserWithEmailAndPassword(email: email, password: password);
 
       await Future.delayed(const Duration(seconds: 1));
+
       Navigator.pushReplacement(
           context,
           MaterialPageRoute(
@@ -45,10 +50,21 @@ class AuthService {
           .signInWithEmailAndPassword(email: email, password: password);
 
       await Future.delayed(const Duration(seconds: 1));
-      Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-              builder: (BuildContext context) => const HomeScreen()));
+
+      String uid = FirebaseAuth.instance.currentUser!.uid;
+      UserL user = UserL();
+      bool? isFirstLogin = await user.getIsFirstLoginStatus(uid);
+      if (isFirstLogin == true) {
+        Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+                builder: (BuildContext context) => const CreatePassword()));
+      } else {
+        Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+                builder: (BuildContext context) => const HomeScreen()));
+      }
     } on FirebaseAuthException catch (e) {
       String message = '';
       if (e.code == 'invalid-email') {
@@ -72,5 +88,33 @@ class AuthService {
     await Future.delayed(const Duration(seconds: 1));
     Navigator.pushReplacement(context,
         MaterialPageRoute(builder: (BuildContext context) => LoginPage()));
+  }
+
+  Future<void> updateUserPassword(String newPassword) async {
+    try {
+      // Get user by ID (for admin SDK only) or use currentUser
+      User? user = FirebaseAuth.instance.currentUser;
+
+      if (user != null) {
+        // Update the password
+        await user.updatePassword(newPassword);
+        print("Password updated successfully for user:");
+        return;
+      } else {
+        // Note: Regular Firebase client SDK cannot update other users' passwords
+        // Only the user themselves can update their password, or you need Firebase Admin SDK
+        throw Exception(
+            "Cannot update password: Current user does not match requested user ID");
+      }
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'requires-recent-login') {
+        // If the user's credential is too old, we need to reauthenticate
+        throw Exception("Please sign in again before updating your password");
+      } else {
+        throw Exception("Error updating password: ${e.message}");
+      }
+    } catch (e) {
+      throw Exception("Failed to update password: $e");
+    }
   }
 }
