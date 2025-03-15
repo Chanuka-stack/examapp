@@ -56,4 +56,22 @@ class UserL {
       throw Exception("Failed to update login state: $e");
     }
   }
+
+  Future<String> getCurrentUserName() async {
+    try {
+      String uid = FirebaseAuth.instance.currentUser!.uid;
+      DocumentSnapshot doc =
+          await FirebaseFirestore.instance.collection('users').doc(uid).get();
+
+      if (doc.exists) {
+        return doc.get('name') as String;
+      } else {
+        print("No examiner found with this UID.");
+        return 'null';
+      }
+    } catch (e) {
+      print("Error fetching isLogin: $e");
+      return 'null';
+    }
+  }
 }

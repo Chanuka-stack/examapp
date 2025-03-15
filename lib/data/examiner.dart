@@ -1,13 +1,17 @@
+import 'package:app1/data/user.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class Examiner {
-  Future<void> createExaminer(
-      String uid, String email, String name, String role) async {
+  Future<void> createExaminer(String uid, String email, String name,
+      String division, String examinerId, String contactNumber) async {
     await FirebaseFirestore.instance.collection('examiners').doc(uid).set({
       'email': email,
       'name': name,
-      'role': role, // "super_admin", "admin", or "user"
+      'examinerId': examinerId,
+      'division': division,
+      'contactNumber': contactNumber,
       'createdAt': FieldValue.serverTimestamp(),
+      'createdBy': await UserL().getCurrentUserName(),
     });
   }
 
