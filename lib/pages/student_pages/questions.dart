@@ -1,3 +1,4 @@
+import 'package:app1/services/text_to_speech_service.dart';
 import 'package:flutter/material.dart';
 import '../components/audio_button.dart';
 import '../../services/timer.dart';
@@ -13,6 +14,8 @@ enum ExamState { ready, inProgress, ended }
 
 class _QesutionsState extends State<Qesutions> {
   final CountdownService _countdownService = CountdownService();
+  final TextToSpeechHelper ttsHelper = TextToSpeechHelper();
+
   String _formattedTime = "00:00:00";
   String _status = "Before";
 
@@ -213,6 +216,36 @@ class _QesutionsState extends State<Qesutions> {
     setState(() {
       _currentState = ExamState.ended;
     });
+  }
+
+  void _speakSection(String text) async {
+    await ttsHelper.initTTS(
+        language: "en-US", rate: 0.5, pitch: 1.0, volume: 1.0);
+    await ttsHelper.speak(text);
+  }
+
+  void _speakMainQuestion(String text) async {
+    await ttsHelper.initTTS(
+        language: "en-US", rate: 0.5, pitch: 1.0, volume: 1.0);
+    await ttsHelper.speak(text);
+  }
+
+  void _speakSubQuestion(String text) async {
+    await ttsHelper.initTTS(
+        language: "en-US", rate: 0.5, pitch: 1.0, volume: 1.0);
+    await ttsHelper.speak(text);
+  }
+
+  void _speakIntro(String text) async {
+    await ttsHelper.initTTS(
+        language: "en-US", rate: 0.5, pitch: 1.0, volume: 1.0);
+    await ttsHelper.speak(text);
+  }
+
+  void _speakOutro(String text) async {
+    await ttsHelper.initTTS(
+        language: "en-US", rate: 0.5, pitch: 1.0, volume: 1.0);
+    await ttsHelper.speak(text);
   }
 
   @override

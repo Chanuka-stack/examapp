@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
 import '../../services/voice_recongintion_service.dart';
+import '../../services/text_to_speech_service.dart';
 
 import 'questions.dart';
 
@@ -13,13 +14,30 @@ class StudentHome extends StatefulWidget {
 
 class _StudentHomeState extends State<StudentHome> {
   final SpeechRecognitionService _speechService = SpeechRecognitionService();
+  final TextToSpeechHelper ttsHelper = TextToSpeechHelper();
+
   String _lastWords = '';
   bool _isInitialized = false;
 
   @override
   void initState() {
     super.initState();
+
+    _initSpeak();
+    _stopSpeak();
     _initSpeechAndStart();
+  }
+
+  void _initSpeak() async {
+    await ttsHelper.initTTS(
+        language: "en-US", rate: 0.5, pitch: 1.0, volume: 1.0);
+    await ttsHelper.speak(
+        "Hello, welcome to the Exam App. Your current exam is start at 9 am. Say Start Exam to Start the Exam");
+    //await ttsHelper.stop();
+  }
+
+  void _stopSpeak() async {
+    await ttsHelper.stop();
   }
 
   void _initSpeechAndStart() async {

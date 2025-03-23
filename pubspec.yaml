@@ -22,7 +22,8 @@ dependencies:
   cloud_firestore: ^5.6.5
   firebase_ui_auth: ^1.16.1
   speech_to_text: ^7.0.0
-  text_to_speech: ^0.2.3
+  flutter_tts: ^4.2.2
+ 
   
  
 
