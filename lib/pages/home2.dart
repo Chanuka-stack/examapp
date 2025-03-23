@@ -1,4 +1,5 @@
 import 'package:app1/pages/exams.dart';
+import 'package:app1/pages/student_pages/sudent_home.dart';
 import 'package:flutter/material.dart';
 import 'divisions2.dart';
 import 'examiners.dart';
@@ -27,10 +28,20 @@ class _HomeState extends State<Home> {
     setState(() {
       userRole = role;
     });
+
+    // Navigate to another page if the role is 'student'
   }
 
   @override
   Widget build(BuildContext context) {
+    if (userRole == 'student') {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => StudentHome()),
+        );
+      });
+    }
     return Scaffold(
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

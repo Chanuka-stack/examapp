@@ -59,7 +59,13 @@ class LoginPageState extends State<LoginPage> {
                   size: 100,
                   color: Colors.blue,
                 ),
-                Text('Login'),
+                Text(
+                  'Welcome to the Application',
+                  style: TextStyle(
+                    fontSize: 24, // Increased font size
+                    fontWeight: FontWeight.bold, // Emphasis
+                  ),
+                ),
                 const SizedBox(height: 32),
                 TextFormField(
                   controller: _emailController,
