@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
 import '../../services/voice_recongintion_service.dart';
 import '../../services/text_to_speech_service.dart';
-
-import 'questions.dart';
+import 'package:flutter_timer_countdown/flutter_timer_countdown.dart';
+import 'questions2.dart';
 
 class StudentHome extends StatefulWidget {
   StudentHome({Key? key}) : super(key: key);
@@ -15,6 +15,7 @@ class StudentHome extends StatefulWidget {
 class _StudentHomeState extends State<StudentHome> {
   final SpeechRecognitionService _speechService = SpeechRecognitionService();
   final TextToSpeechHelper ttsHelper = TextToSpeechHelper();
+  bool _isFirstInit = true;
 
   String _lastWords = '';
   bool _isInitialized = false;
@@ -24,8 +25,13 @@ class _StudentHomeState extends State<StudentHome> {
     super.initState();
 
     _initSpeak();
-    _stopSpeak();
+
     _initSpeechAndStart();
+  }
+
+  void dispose() {
+    _speechService.stopListening();
+    super.dispose();
   }
 
   void _initSpeak() async {
@@ -64,7 +70,9 @@ class _StudentHomeState extends State<StudentHome> {
   void _processResult(SpeechRecognitionResult result) {
     setState(() {
       _lastWords = result.recognizedWords;
+
       if (_lastWords.toLowerCase().contains('start exam')) {
+        _speechService.stopListening();
         _navigateToHomePage();
       }
     });
@@ -78,6 +86,14 @@ class _StudentHomeState extends State<StudentHome> {
     );
   }
 
+  final DateTime startTime = DateTime(
+    DateTime.now().year,
+    DateTime.now().month,
+    DateTime.now().day,
+    15,
+    47,
+    30,
+  );
   final List<Map<String, dynamic>> upcomingExams = [
     {
       'name': 'SINHALA LITERATURE PART II - [Y152-SL-9292]',
@@ -328,12 +344,40 @@ class _StudentHomeState extends State<StudentHome> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
+                /*const Text(
                   'Exam starts in 00:50s',
                   style: TextStyle(fontWeight: FontWeight.w500),
+                ),*/
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.red,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: TimerCountdown(
+                    format: CountDownTimerFormat.hoursMinutesSeconds,
+                    endTime: startTime,
+                    timeTextStyle: TextStyle(
+                      fontSize: 18, // Adjust size
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white, // Change text color
+                    ),
+                    descriptionTextStyle: TextStyle(
+                      // Hides labels by setting empty text
+                      fontSize: 0, // Makes labels disappear
+                      color: Colors.transparent,
+                    ),
+                    onEnd: () {
+                      Navigator.push(context,
+                          MaterialPageRoute(builder: (context) => Qesutions()));
+                    },
+                  ),
                 ),
                 ElevatedButton(
-                  onPressed: () {},
+                  onPressed: () {
+                    Navigator.push(context,
+                        MaterialPageRoute(builder: (context) => Qesutions()));
+                  },
                   style: ElevatedButton.styleFrom(
                     shape: const CircleBorder(),
                     backgroundColor: Colors.orange,

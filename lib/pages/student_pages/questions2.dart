@@ -2,6 +2,7 @@ import 'package:app1/services/text_to_speech_service.dart';
 import 'package:flutter/material.dart';
 import '../components/audio_button.dart';
 import '../../services/timer.dart';
+import 'package:flutter_timer_countdown/flutter_timer_countdown.dart';
 
 class Qesutions extends StatefulWidget {
   const Qesutions({super.key});
@@ -13,32 +14,28 @@ class Qesutions extends StatefulWidget {
 enum ExamState { ready, inProgress, ended }
 
 class _QesutionsState extends State<Qesutions> {
-  final CountdownService _countdownService = CountdownService();
   final TextToSpeechHelper ttsHelper = TextToSpeechHelper();
-  // Prevent multiple speech triggers
-  bool _hasSpoken = false;
-  String _formattedTime = "00:00:00";
-  String _status = "Before";
 
   /// Example: Exam is from 10:00 AM to 12:00 PM
   final DateTime startTime = DateTime(
     DateTime.now().year,
     DateTime.now().month,
     DateTime.now().day,
-    00,
-    00,
-    00,
+    11,
+    47,
+    30,
   );
   final DateTime endTime = DateTime(
     DateTime.now().year,
     DateTime.now().month,
     DateTime.now().day,
-    01,
-    10,
+    11,
+    55,
     0,
   );
 
   ExamState _currentState = ExamState.ready;
+
   int _currentSectionIndex = 0;
   int _currentQuestionIndex = -1;
   int _currentSubQuestionIndex = -1;
@@ -50,23 +47,14 @@ class _QesutionsState extends State<Qesutions> {
   void initState() {
     super.initState();
     // Initialize question data
-    _countdownService.countdownStream.listen((data) {
-      setState(() {
-        _status = data["status"]!;
-        _formattedTime = data["remainingTime"]!;
+    if (DateTime.now().isBefore(startTime)) {
+      _currentState = ExamState.ready;
+    } else if (DateTime.now().isAfter(endTime)) {
+      _currentState = ExamState.ended;
+    } else {
+      _currentState = ExamState.inProgress;
+    }
 
-        // Automatically start exam when time is 'Within'
-        if (_status == 'Within' && _currentState == ExamState.ready) {
-          _currentState = ExamState.inProgress;
-        }
-
-        // Automatically end exam when time is 'End'
-        if (_status == 'End' && _currentState != ExamState.ended) {
-          _endExam();
-        }
-      });
-    });
-    _countdownService.startCountdown(startTime, endTime);
     sections = [
       {
         'title': 'SECTION 01',
@@ -110,7 +98,6 @@ class _QesutionsState extends State<Qesutions> {
 
   @override
   void dispose() {
-    _countdownService.dispose();
     super.dispose();
   }
 
@@ -266,25 +253,21 @@ class _QesutionsState extends State<Qesutions> {
 
   Widget _getScreenForState() {
     // If exam is manually ended or time is up, show ended screen
-    if (_currentState == ExamState.ended || _status == 'End') {
-      _hasSpoken = false;
+    if (_currentState == ExamState.ended) {
       return _buildExamEndedScreen();
     }
 
     // If exam hasn't started yet and it's before exam time
-    if (_currentState == ExamState.ready && _status == 'Before') {
-      _hasSpoken = false;
+    if (_currentState == ExamState.ready) {
       return _buildReadyScreen();
     }
 
     // If exam is in progress
-    if (_currentState == ExamState.inProgress || _status == 'Within') {
+    if (_currentState == ExamState.inProgress) {
       // If we're at the very beginning, show the section intro
       if (_currentQuestionIndex == -1 && _currentSubQuestionIndex == -1) {
-        _hasSpoken = false;
         return _buildSectionIntroScreen();
       } else {
-        _hasSpoken = false;
         return _buildQuestionScreen();
       }
     }
@@ -294,13 +277,15 @@ class _QesutionsState extends State<Qesutions> {
   }
 
   Widget _buildReadyScreen() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_hasSpoken) {
-        _speakR('STAY READY');
-        _speakR('SINHALA LITERATURE PART II - [YIS2-SL-9282]');
-        _speakR('Your exam will start in ');
-        _hasSpoken = true;
-      }
+    /*WidgetsBinding.instance.addPostFrameCallback((_) {
+      _speakR('STAY READY');
+      _speakR('SINHALA LITERATURE PART II - [YIS2-SL-9282]');
+      _speakR('Your exam will start in ');
+    });*/
+    Future.microtask(() {
+      _speakR('STAY READY');
+      _speakR('SINHALA LITERATURE PART II - [YIS2-SL-9282]');
+      _speakR('Your exam will start in ');
     });
     return Container(
       padding: EdgeInsets.all(16),
@@ -342,13 +327,12 @@ class _QesutionsState extends State<Qesutions> {
                     color: Colors.red,
                     borderRadius: BorderRadius.circular(4),
                   ),
-                  child: Text(
-                    _formattedTime,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  child: TimerCountdown(
+                    format: CountDownTimerFormat.hoursMinutesSeconds,
+                    endTime: startTime,
+                    onEnd: () {
+                      _startExam();
+                    },
                   ),
                 ),
               ],
@@ -370,13 +354,15 @@ class _QesutionsState extends State<Qesutions> {
   }
 
   Widget _buildSectionIntroScreen() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    /*WidgetsBinding.instance.addPostFrameCallback((_) {
       final String introText =
           'This exam has two sections: Section 1 requires answering all questions, while in Section 2, you may choose any two questions out of five. The total duration is 2 hours.';
-      if (!_hasSpoken) {
-        _speakIntro(introText);
-        _hasSpoken = true;
-      }
+      _speakIntro(introText);
+    });*/
+    Future.microtask(() {
+      final String introText =
+          'This exam has two sections: Section 1 requires answering all questions, while in Section 2, you may choose any two questions out of five. The total duration is 2 hours.';
+      _speakIntro(introText);
     });
     return Container(
       padding: EdgeInsets.all(16),
@@ -418,13 +404,12 @@ class _QesutionsState extends State<Qesutions> {
                 color: Colors.red,
                 borderRadius: BorderRadius.circular(4),
               ),
-              child: Text(
-                _formattedTime,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
+              child: TimerCountdown(
+                format: CountDownTimerFormat.hoursMinutesSeconds,
+                endTime: endTime,
+                onEnd: () {
+                  _endExam();
+                },
               ),
             ),
           ),
@@ -476,22 +461,16 @@ class _QesutionsState extends State<Qesutions> {
         sections[_currentSectionIndex]['questions'][_currentQuestionIndex];
     final subQuestion = question['subQuestions'][_currentSubQuestionIndex];
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    Future.microtask(() {
       // First speak the main question if this is the first subquestion
       if (_currentSubQuestionIndex == 0) {
-        if (!_hasSpoken) {
-          _speakMainQuestion(question['title']);
-          _hasSpoken = true;
-        }
+        _speakMainQuestion(question['title']);
       }
 
       // Then speak the subquestion after a short delay
       Future.delayed(
           Duration(milliseconds: _currentSubQuestionIndex == 0 ? 2000 : 0), () {
-        if (!_hasSpoken) {
-          _speakSubQuestion(subQuestion['text']);
-          _hasSpoken = true;
-        }
+        _speakSubQuestion(subQuestion['text']);
       });
     });
 
@@ -541,13 +520,12 @@ class _QesutionsState extends State<Qesutions> {
                 color: Colors.red,
                 borderRadius: BorderRadius.circular(4),
               ),
-              child: Text(
-                _formattedTime,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
+              child: TimerCountdown(
+                format: CountDownTimerFormat.hoursMinutesSeconds,
+                endTime: endTime,
+                onEnd: () {
+                  _endExam;
+                },
               ),
             ),
           ),
@@ -598,9 +576,13 @@ class _QesutionsState extends State<Qesutions> {
   }
 
   Widget _buildExamEndedScreen() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    /*WidgetsBinding.instance.addPostFrameCallback((_) {
+      _speakOutro('Your exam has been submitted');
+    });*/
+    Future.microtask(() {
       _speakOutro('Your exam has been submitted');
     });
+
     return Container(
       padding: EdgeInsets.all(16),
       child: Column(
@@ -640,13 +622,19 @@ class _QesutionsState extends State<Qesutions> {
                 color: Colors.red,
                 borderRadius: BorderRadius.circular(4),
               ),
-              child: Text(
-                _formattedTime,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
+              child: TimerCountdown(
+                format: CountDownTimerFormat.hoursMinutesSeconds,
+                endTime: DateTime.now().add(
+                  Duration(
+                    days: 5,
+                    hours: 14,
+                    minutes: 27,
+                    seconds: 34,
+                  ),
                 ),
+                onEnd: () {
+                  print("Timer finished");
+                },
               ),
             ),
           ),

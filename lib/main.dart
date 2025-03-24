@@ -9,6 +9,7 @@ import 'pages/create_division.dart';
 import 'pages/components/audio_button.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
+import 'pages/student_pages/questions2.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -29,8 +30,8 @@ class MainApp extends StatelessWidget {
             ColorScheme.fromSeed(seedColor: Colors.blue), // Change theme color
         useMaterial3: true, // Enables Material 3 styling
       ),
-      home: LoginPage(),
-      //home: StudentHome(),
+      //home: LoginPage(),
+      home: StudentHome(),
       //home: Center(child: AudioRecordButton()),
     );
   }
