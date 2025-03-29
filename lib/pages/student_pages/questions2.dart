@@ -1,4 +1,7 @@
 import 'package:app1/services/text_to_speech_service.dart';
+
+import 'package:speech_to_text/speech_recognition_result.dart';
+import '../../services/voice_recongintion_service.dart';
 import 'package:flutter/material.dart';
 import '../components/audio_button.dart';
 import '../../services/timer.dart';
@@ -15,14 +18,17 @@ enum ExamState { ready, inProgress, ended }
 
 class _QesutionsState extends State<Qesutions> {
   final TextToSpeechHelper ttsHelper = TextToSpeechHelper();
+  final SpeechRecognitionService _speechService = SpeechRecognitionService();
+  bool _isInitialized = false;
+  String _lastWords = '';
 
   /// Example: Exam is from 10:00 AM to 12:00 PM
   final DateTime startTime = DateTime(
     DateTime.now().year,
     DateTime.now().month,
     DateTime.now().day,
-    11,
-    47,
+    6,
+    22,
     30,
   );
   final DateTime endTime = DateTime(
@@ -30,7 +36,7 @@ class _QesutionsState extends State<Qesutions> {
     DateTime.now().month,
     DateTime.now().day,
     11,
-    55,
+    00,
     0,
   );
 
@@ -46,6 +52,7 @@ class _QesutionsState extends State<Qesutions> {
   @override
   void initState() {
     super.initState();
+    _initSpeechAndStart();
     // Initialize question data
     if (DateTime.now().isBefore(startTime)) {
       _currentState = ExamState.ready;
@@ -94,6 +101,58 @@ class _QesutionsState extends State<Qesutions> {
         ],
       },
     ];
+  }
+
+  void _initSpeechAndStart() async {
+    await _speechService.initSpeech();
+    setState(() {
+      _isInitialized = true;
+    });
+    // Start listening automatically
+    _startListening();
+  }
+
+  void _startListening() async {
+    await _speechService.startListening(onResult: _processResult);
+    //setState(() {});
+
+    // Set up a timer to check if listening has stopped
+    Future.delayed(Duration(seconds: 5), () {
+      if (mounted) {
+        _speechService.checkAndRestartListening(_startListening);
+      }
+    });
+  }
+
+  void _processResult(SpeechRecognitionResult result) {
+    setState(() {
+      _lastWords = result.recognizedWords;
+
+      if (_currentState == ExamState.inProgress) {
+        if (_lastWords.toLowerCase().contains('i am ready for exam')) {
+          //_speechService.stopListening();
+          _goToFirstQuestion();
+        }
+      }
+      if (_currentState == ExamState.inProgress) {
+        if (_lastWords.toLowerCase().contains('next question')) {
+          //_speechService.stopListening();
+          _nextQuestion();
+        }
+        if (_lastWords.toLowerCase().contains('previous question')) {
+          //_speechService.stopListening();
+          _previousQuestion();
+        }
+      }
+      if (_currentState == ExamState.ended) {
+        if (_lastWords.toLowerCase().contains('end exam')) {
+          //_speechService.stopListening();
+        }
+        if (_lastWords.toLowerCase().contains('previous question')) {
+          //_speechService.stopListening();
+        }
+      }
+    });
   }
 
   @override
@@ -301,25 +360,43 @@ class _QesutionsState extends State<Qesutions> {
                   color: Colors.deepPurple,
                   shape: BoxShape.circle,
                 ),
-                child: Icon(Icons.arrow_back, color: Colors.white),
+                child: IconButton(
+                  icon: Icon(Icons.arrow_back),
+                  color: Colors.white,
+                  onPressed: () {
+                    Navigator.pop(context);
+                  },
+                ),
               ),
               SizedBox(width: 16),
               Text(
                 'STAY READY',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'sans-serif',
+                ),
               ),
             ],
           ),
           SizedBox(height: 32),
           Text(
             'SINHALA LITERATURE PART II - [YIS2-SL-9282]',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              fontFamily: 'sans-serif',
+            ),
           ),
           SizedBox(height: 64),
           Center(
             child: Column(
               children: [
-                Text('Your exam will start in', style: TextStyle(fontSize: 18)),
+                Text('Your exam will start in',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontFamily: 'sans-serif',
+                    )),
                 SizedBox(height: 16),
                 Container(
                   padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -329,6 +406,22 @@ class _QesutionsState extends State<Qesutions> {
                   ),
                   child: TimerCountdown(
                     format: CountDownTimerFormat.hoursMinutesSeconds,
+                    timeTextStyle: TextStyle(
+                      fontSize: 16, // Adjust size
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white, // Change text color
+                    ),
+                    descriptionTextStyle: TextStyle(
+                      // Hides labels by setting empty text
+                      fontSize: 0, // Makes labels disappear
+                      color: Colors.transparent,
+                      fontFamily: 'sans-serif',
+                    ),
+                    colonsTextStyle: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontFamily: 'sans-serif',
+                    ),
                     endTime: startTime,
                     onEnd: () {
                       _startExam();
@@ -383,7 +476,11 @@ class _QesutionsState extends State<Qesutions> {
               ),
               Text(
                 sections[_currentSectionIndex]['title'],
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'sans-serif',
+                ),
               ),
               Container(
                 width: 40,
@@ -406,6 +503,22 @@ class _QesutionsState extends State<Qesutions> {
               ),
               child: TimerCountdown(
                 format: CountDownTimerFormat.hoursMinutesSeconds,
+                timeTextStyle: TextStyle(
+                  fontSize: 16, // Adjust size
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white, // Change text color
+                ),
+                descriptionTextStyle: TextStyle(
+                  // Hides labels by setting empty text
+                  fontSize: 0, // Makes labels disappear
+                  color: Colors.transparent,
+                  fontFamily: 'sans-serif',
+                ),
+                colonsTextStyle: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'sans-serif',
+                ),
                 endTime: endTime,
                 onEnd: () {
                   _endExam();
@@ -416,24 +529,61 @@ class _QesutionsState extends State<Qesutions> {
           SizedBox(height: 24),
           Text(
             'This exam has two sections:',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              fontFamily: 'sans-serif',
+            ),
           ),
           SizedBox(height: 16),
           Text(
             'Section 1 requires answering all questions,',
-            style: TextStyle(fontSize: 16),
+            style: TextStyle(
+              fontSize: 16,
+              fontFamily: 'sans-serif',
+            ),
           ),
           SizedBox(height: 8),
           Text(
             'while in Section 2, you may choose any two questions out of five.',
-            style: TextStyle(fontSize: 16),
+            style: TextStyle(
+              fontSize: 16,
+              fontFamily: 'sans-serif',
+            ),
           ),
           SizedBox(height: 16),
           Text(
             'The total duration is 2 hours.',
-            style: TextStyle(fontSize: 16),
+            style: TextStyle(
+              fontSize: 16,
+              fontFamily: 'sans-serif',
+            ),
           ),
-          Spacer(),
+          SizedBox(height: 16),
+          Text(
+            'Say,',
+            style: TextStyle(
+              fontSize: 16,
+              fontFamily: 'sans-serif',
+            ),
+          ),
+          Text(
+            '"I am redy for exam"',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              fontFamily: 'sans-serif',
+            ),
+          ),
+          Text(
+            'to start the exam',
+            style: TextStyle(
+              fontSize: 16,
+              fontFamily: 'sans-serif',
+            ),
+          ),
+          //Spacer(),
+          SizedBox(height: 48),
           Center(
             child: ElevatedButton(
               onPressed: () {
@@ -446,11 +596,20 @@ class _QesutionsState extends State<Qesutions> {
                 });
               },
               style: ElevatedButton.styleFrom(
-                padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                shape: const CircleBorder(),
+                backgroundColor: Colors.orange,
+                foregroundColor: Colors.white,
+                minimumSize: const Size(100, 100),
               ),
-              child: Text('Start Section', style: TextStyle(fontSize: 18)),
+              child: const Text(
+                'START',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'sans-serif',
+                ),
+              ),
             ),
-          ),
+          )
         ],
       ),
     );
@@ -496,7 +655,11 @@ class _QesutionsState extends State<Qesutions> {
               ),
               Text(
                 sections[_currentSectionIndex]['title'],
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'sans-serif',
+                ),
               ),
               GestureDetector(
                 onTap: _nextQuestion,
@@ -522,6 +685,22 @@ class _QesutionsState extends State<Qesutions> {
               ),
               child: TimerCountdown(
                 format: CountDownTimerFormat.hoursMinutesSeconds,
+                timeTextStyle: TextStyle(
+                  fontSize: 16, // Adjust size
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white, // Change text color
+                ),
+                descriptionTextStyle: TextStyle(
+                  // Hides labels by setting empty text
+                  fontSize: 0, // Makes labels disappear
+                  color: Colors.transparent,
+                  fontFamily: 'sans-serif',
+                ),
+                colonsTextStyle: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'sans-serif',
+                ),
                 endTime: endTime,
                 onEnd: () {
                   _endExam;
@@ -540,13 +719,18 @@ class _QesutionsState extends State<Qesutions> {
                 color: Colors.white,
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
+                fontFamily: 'sans-serif',
               ),
             ),
           ),
           SizedBox(height: 8),
           Text(
             question['title'],
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              fontFamily: 'sans-serif',
+            ),
           ),
           SizedBox(height: 16),
           Container(
@@ -559,6 +743,7 @@ class _QesutionsState extends State<Qesutions> {
                 color: Colors.white,
                 fontSize: 14,
                 fontWeight: FontWeight.bold,
+                fontFamily: 'sans-serif',
               ),
             ),
           ),
@@ -566,10 +751,32 @@ class _QesutionsState extends State<Qesutions> {
           Text(subQuestion['text'], style: TextStyle(fontSize: 16)),
           Text(
             '(${subQuestion['marks']} Marks)',
-            style: TextStyle(fontSize: 14, fontStyle: FontStyle.italic),
+            style: TextStyle(
+              fontSize: 14,
+              fontStyle: FontStyle.italic,
+              fontFamily: 'sans-serif',
+            ),
           ),
           SizedBox(height: 25),
           Center(child: AudioRecordButton()),
+          SizedBox(height: 25),
+          Container(
+            height: 200, // Adjust height as needed
+            padding: EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: TextField(
+              decoration: InputDecoration(
+                border: InputBorder.none,
+                hintText: "Enter your text...",
+              ),
+              keyboardType: TextInputType.multiline,
+              maxLines: null,
+              expands: true, // Fills the container
+            ),
+          )
         ],
       ),
     );
@@ -610,7 +817,11 @@ class _QesutionsState extends State<Qesutions> {
               SizedBox(width: 16),
               Text(
                 'EXAM ENDED',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'sans-serif',
+                ),
               ),
             ],
           ),
@@ -624,11 +835,26 @@ class _QesutionsState extends State<Qesutions> {
               ),
               child: TimerCountdown(
                 format: CountDownTimerFormat.hoursMinutesSeconds,
+                timeTextStyle: TextStyle(
+                  fontSize: 16, // Adjust size
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white, // Change text color
+                ),
+                descriptionTextStyle: TextStyle(
+                  // Hides labels by setting empty text
+                  fontSize: 0, // Makes labels disappear
+                  color: Colors.transparent,
+                  fontFamily: 'sans-serif',
+                ),
+                colonsTextStyle: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'sans-serif',
+                ),
                 endTime: DateTime.now().add(
                   Duration(
-                    days: 5,
-                    hours: 14,
-                    minutes: 27,
+                    hours: 00,
+                    minutes: 00,
                     seconds: 34,
                   ),
                 ),
@@ -642,7 +868,11 @@ class _QesutionsState extends State<Qesutions> {
           Center(
             child: Text(
               'Your exam has been submitted',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                fontFamily: 'sans-serif',
+              ),
             ),
           ),
           Spacer(),

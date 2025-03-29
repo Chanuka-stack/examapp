@@ -19,6 +19,7 @@ class _StudentHomeState extends State<StudentHome> {
 
   String _lastWords = '';
   bool _isInitialized = false;
+  bool isStartExam = false;
 
   @override
   void initState() {
@@ -90,9 +91,9 @@ class _StudentHomeState extends State<StudentHome> {
     DateTime.now().year,
     DateTime.now().month,
     DateTime.now().day,
-    15,
-    47,
-    30,
+    11,
+    36,
+    00,
   );
   final List<Map<String, dynamic>> upcomingExams = [
     {
@@ -170,6 +171,7 @@ class _StudentHomeState extends State<StudentHome> {
               style: TextStyle(
                 color: Colors.black,
                 fontWeight: FontWeight.bold,
+                fontFamily: 'sans-serif',
               ),
             ),
           ],
@@ -190,6 +192,7 @@ class _StudentHomeState extends State<StudentHome> {
                 style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
+                  fontFamily: 'sans-serif',
                 ),
               ),
             ),
@@ -204,11 +207,15 @@ class _StudentHomeState extends State<StudentHome> {
           children: [
             const Text(
               'Upcoming Exams',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                fontFamily: 'sans-serif',
+              ),
             ),
             const SizedBox(height: 12),
             SizedBox(
-              height: 220,
+              height: 250,
               child: PageView.builder(
                 controller: PageController(viewportFraction: 0.97),
                 itemCount: upcomingExams.length,
@@ -222,7 +229,11 @@ class _StudentHomeState extends State<StudentHome> {
             // Voice Commands section
             const Text(
               'Voice Commands',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                fontFamily: 'sans-serif',
+              ),
             ),
             const SizedBox(height: 12),
 
@@ -256,7 +267,11 @@ class _StudentHomeState extends State<StudentHome> {
             // Practice Sessions section
             const Text(
               'Practice Sessions',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                fontFamily: 'sans-serif',
+              ),
             ),
             const SizedBox(height: 12),
 
@@ -292,7 +307,11 @@ class _StudentHomeState extends State<StudentHome> {
             // Exam title
             Text(
               exam['name'],
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+                fontFamily: 'sans-serif',
+              ),
             ),
             const SizedBox(height: 12),
 
@@ -305,15 +324,16 @@ class _StudentHomeState extends State<StudentHome> {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.indigo.withOpacity(0.1),
+                    color: Color(0xFF1E3A8A),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
                     exam['date'],
                     style: const TextStyle(
-                      fontSize: 12,
-                      color: Colors.indigo,
+                      fontSize: 14,
+                      color: Colors.white,
                       fontWeight: FontWeight.w500,
+                      fontFamily: 'sans-serif',
                     ),
                   ),
                 ),
@@ -324,21 +344,22 @@ class _StudentHomeState extends State<StudentHome> {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.indigo.withOpacity(0.1),
+                    color: Color(0xFFFF00FF),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
                     '${exam['startTime']} - ${exam['endTime']}',
                     style: const TextStyle(
-                      fontSize: 12,
-                      color: Colors.indigo,
+                      fontSize: 14,
+                      color: Colors.white,
                       fontWeight: FontWeight.w500,
+                      fontFamily: 'sans-serif',
                     ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 24),
 
             // Timer and start button
             Row(
@@ -348,30 +369,50 @@ class _StudentHomeState extends State<StudentHome> {
                   'Exam starts in 00:50s',
                   style: TextStyle(fontWeight: FontWeight.w500),
                 ),*/
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.red,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: TimerCountdown(
-                    format: CountDownTimerFormat.hoursMinutesSeconds,
-                    endTime: startTime,
-                    timeTextStyle: TextStyle(
-                      fontSize: 18, // Adjust size
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white, // Change text color
+                Column(
+                  children: [
+                    Text(
+                      'Exam Start in',
+                      style: TextStyle(
+                        color: Colors.red,
+                        fontWeight: FontWeight.bold,
+                        fontFamily: 'sans-serif',
+                      ),
                     ),
-                    descriptionTextStyle: TextStyle(
-                      // Hides labels by setting empty text
-                      fontSize: 0, // Makes labels disappear
-                      color: Colors.transparent,
+                    Container(
+                      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: TimerCountdown(
+                        format: CountDownTimerFormat.hoursMinutesSeconds,
+                        endTime: startTime,
+                        timeTextStyle: TextStyle(
+                          fontSize: 16, // Adjust size
+                          fontWeight: FontWeight.bold,
+                          color: Colors.red, // Change text color
+                        ),
+                        descriptionTextStyle: TextStyle(
+                          // Hides labels by setting empty text
+                          fontSize: 0, // Makes labels disappear
+                          color: Colors.transparent,
+                          fontFamily: 'sans-serif',
+                        ),
+                        colonsTextStyle: TextStyle(
+                          color: Colors.red,
+                          fontWeight: FontWeight.bold,
+                          fontFamily: 'sans-serif',
+                        ),
+                        onEnd: () {
+                          Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (context) => Qesutions()));
+                        },
+                      ),
                     ),
-                    onEnd: () {
-                      Navigator.push(context,
-                          MaterialPageRoute(builder: (context) => Qesutions()));
-                    },
-                  ),
+                  ],
                 ),
                 ElevatedButton(
                   onPressed: () {
@@ -386,7 +427,10 @@ class _StudentHomeState extends State<StudentHome> {
                   ),
                   child: const Text(
                     'START',
-                    style: TextStyle(fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontFamily: 'sans-serif',
+                    ),
                   ),
                 ),
               ],
@@ -419,7 +463,11 @@ class _StudentHomeState extends State<StudentHome> {
           // Practice exam title
           Text(
             session['name'],
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+              fontFamily: 'sans-serif',
+            ),
           ),
           const SizedBox(height: 16),
 
@@ -442,9 +490,10 @@ class _StudentHomeState extends State<StudentHome> {
                   Text(
                     '${session['shortQuestions']} SHORT QUESTIONS',
                     style: const TextStyle(
-                      fontSize: 12,
+                      fontSize: 14,
                       color: Colors.indigo,
                       fontWeight: FontWeight.w500,
+                      fontFamily: 'sans-serif',
                     ),
                   ),
                 ],
@@ -470,9 +519,10 @@ class _StudentHomeState extends State<StudentHome> {
                   Text(
                     '${session['structuredQuestions']} STRUCTURED QUESTIONS',
                     style: const TextStyle(
-                      fontSize: 12,
+                      fontSize: 14,
                       color: Colors.indigo,
                       fontWeight: FontWeight.w500,
+                      fontFamily: 'sans-serif',
                     ),
                   ),
                 ],
@@ -498,9 +548,10 @@ class _StudentHomeState extends State<StudentHome> {
                   Text(
                     '${session['essayQuestions']} ESSAY QUESTIONS',
                     style: const TextStyle(
-                      fontSize: 12,
+                      fontSize: 14,
                       color: Colors.indigo,
                       fontWeight: FontWeight.w500,
+                      fontFamily: 'sans-serif',
                     ),
                   ),
                 ],
@@ -511,7 +562,11 @@ class _StudentHomeState extends State<StudentHome> {
           Center(
             child: Text(
               session['duration'],
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey.shade600,
+                fontFamily: 'sans-serif',
+              ),
             ),
           ),
           const SizedBox(height: 16),
@@ -536,7 +591,10 @@ class _StudentHomeState extends State<StudentHome> {
               ),
               child: const Text(
                 'START',
-                style: TextStyle(fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'sans-serif',
+                ),
               ),
             ),
           ),
@@ -561,7 +619,11 @@ class _StudentHomeState extends State<StudentHome> {
             const SizedBox(width: 8),
             Text(
               '"$command"',
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                fontFamily: 'sans-serif',
+              ),
             ),
           ],
         ),

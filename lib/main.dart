@@ -30,8 +30,8 @@ class MainApp extends StatelessWidget {
             ColorScheme.fromSeed(seedColor: Colors.blue), // Change theme color
         useMaterial3: true, // Enables Material 3 styling
       ),
-      //home: LoginPage(),
-      home: StudentHome(),
+      home: LoginPage(),
+      //home: StudentHome(),
       //home: Center(child: AudioRecordButton()),
     );
   }
