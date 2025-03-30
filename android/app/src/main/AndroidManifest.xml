@@ -4,6 +4,10 @@
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
+
+
     <application
         android:label="app1"
         android:name="${applicationName}"
@@ -49,7 +53,11 @@
         </intent>
 
         <intent>
-        <action android:name="android.intent.action.TTS_SERVICE"/>
-    </intent>
+            <action android:name="android.intent.action.TTS_SERVICE"/>
+        </intent>
+
+        <intent>
+            <action android:name="android.intent.action.GET_CONTENT" />
+        </intent>
     </queries>
 </manifest>

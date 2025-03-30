@@ -30,10 +30,10 @@ class _HomeScreenState extends State<HomeScreen> {
         backgroundColor: Colors.white,
         leading: Padding(
           padding: EdgeInsets.only(left: 10),
-          child: Image.network(
+          /*child: Image.network(
             "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/30e6638c-66dc-4f26-9c63-a18063356e7e",
             fit: BoxFit.fitWidth,
-          ),
+          ),*/
         ),
         actions: [
           /*IconButton(

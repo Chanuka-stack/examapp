@@ -1,6 +1,7 @@
 import 'dart:ffi';
 
 import 'package:app1/data/examiner.dart';
+import 'package:app1/data/student.dart';
 import 'package:app1/pages/login.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -145,12 +146,68 @@ class AuthService {
       // Create user document in Firestore under "users" collection
       UserL userL = UserL();
       await userL.createUser(
-          uid, email, name, 'examiner'); // Assuming role is 'examiner'
+          uid, email, name, 'admin'); // Assuming role is 'examiner'
 
       // Create examiner document in Firestore under "examiners" collection
       Examiner examiner = Examiner();
       await examiner.createExaminer(
           uid, email, name, division, examinerId, contactNumber);
+
+      await Future.delayed(const Duration(seconds: 2));
+
+      //Navigator.pop(context);
+    } on FirebaseAuthException catch (e) {
+      String message = '';
+      if (e.code == 'weak-password') {
+        message = 'The password provided is too weak.';
+      } else if (e.code == 'email-already-in-use') {
+        message = 'An account already exists with that email.';
+      }
+      Fluttertoast.showToast(
+        msg: message,
+        toastLength: Toast.LENGTH_LONG,
+        gravity: ToastGravity.SNACKBAR,
+        backgroundColor: Colors.black54,
+        textColor: Colors.white,
+        fontSize: 14.0,
+      );
+      print(e);
+    } catch (e) {
+      print("Error: $e");
+    }
+  }
+
+  Future<void> signupStudent({
+    required String email,
+    required String password,
+    required String name,
+    required String studentId,
+    required String division,
+    required String contactNumber,
+    required BuildContext context,
+  }) async {
+    try {
+      // Create user in Firebase Authentication
+      UserCredential userCredential = await FirebaseAuth.instance
+          .createUserWithEmailAndPassword(email: email, password: password);
+
+      // Get the UID of the created user
+      User? user = userCredential.user;
+      if (user == null) {
+        throw Exception("User creation failed. Please try again.");
+      }
+
+      String uid = user.uid; //  Get newly created user's UID
+      print("New Student UID: $uid");
+
+      // Create user document in Firestore under "users" collection
+      UserL userL = UserL();
+      await userL.createUser(uid, email, name, 'student');
+
+      // Create examiner document in Firestore under "examiners" collection
+      Student student = Student();
+      await student.createStudent(
+          uid, email, name, division, studentId, contactNumber);
 
       await Future.delayed(const Duration(seconds: 2));
 

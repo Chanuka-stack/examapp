@@ -2,7 +2,7 @@ import 'package:app1/pages/login.dart';
 import 'package:app1/pages/student_pages/sudent_home.dart';
 import 'package:flutter/material.dart';
 import 'pages/home_screen.dart';
-import 'pages/od pages/divisions.dart';
+
 import 'pages/homeTest.dart';
 import 'pages/create_student.dart';
 import 'pages/create_division.dart';

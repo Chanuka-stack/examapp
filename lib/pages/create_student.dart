@@ -1,4 +1,9 @@
+import 'dart:math';
+import 'package:app1/data/student.dart';
+import 'package:app1/services/auth_services.dart';
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:email_validator/email_validator.dart';
 import 'components/audio_button.dart';
 
 class StudentFormScreen extends StatefulWidget {
@@ -7,10 +12,15 @@ class StudentFormScreen extends StatefulWidget {
 }
 
 class _StudentFormScreenState extends State<StudentFormScreen> {
+  final _formKey = GlobalKey<FormState>();
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _codeController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _contactController = TextEditingController();
+
+  String? _selectedDivision;
+
+  Student student = Student();
 
   @override
   Widget build(BuildContext context) {
@@ -37,112 +47,178 @@ class _StudentFormScreenState extends State<StudentFormScreen> {
         child: SingleChildScrollView(
           child: Padding(
             padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text("Name *",
-                    style: TextStyle(fontWeight: FontWeight.bold)),
-                TextFormField(
-                  controller: _nameController,
-                  decoration: InputDecoration(
-                    border: OutlineInputBorder(),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text("Name *",
+                      style: TextStyle(fontWeight: FontWeight.bold)),
+                  TextFormField(
+                    controller: _nameController,
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(),
+                      hintText: "Enter student name",
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter student name';
+                      }
+                      return null;
+                    },
                   ),
-                ),
-                const SizedBox(height: 10),
-                const Text("ID ",
-                    style: TextStyle(fontWeight: FontWeight.bold)),
-                TextFormField(
-                  controller: _codeController,
-                  decoration: InputDecoration(
-                    border: OutlineInputBorder(),
+                  const SizedBox(height: 10),
+                  const Text("ID ",
+                      style: TextStyle(fontWeight: FontWeight.bold)),
+                  TextFormField(
+                    controller: _codeController,
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(),
+                      hintText: "Enter student ID",
+                    ),
+                    // ID is optional as per original form
                   ),
-                ),
-                const SizedBox(height: 10),
-                const Text("Division *",
-                    style: TextStyle(fontWeight: FontWeight.bold)),
-                DropdownButtonFormField<String>(
-                  decoration: InputDecoration(
-                    border: OutlineInputBorder(),
+                  const SizedBox(height: 10),
+                  const Text("Division *",
+                      style: TextStyle(fontWeight: FontWeight.bold)),
+                  DropdownButtonFormField<String>(
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(),
+                    ),
+                    hint: const Text("Select a Division"),
+                    value: _selectedDivision,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please select a division';
+                      }
+                      return null;
+                    },
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() {
+                          _selectedDivision = value;
+                        });
+                      }
+                    },
+                    items: ["Arts", "Science", "Medicine", "Management"]
+                        .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                        .toList(),
                   ),
-                  hint: const Text("Select a Division"),
-                  onChanged: (value) {
-                    if (value != null) {
-                      setState(() {});
-                    }
-                  },
-                  items: ["Arts", "Science", "Medicine", "Management"]
-                      .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-                      .toList(),
-                ),
-                const SizedBox(height: 10),
-                const Text("Email Address *",
-                    style: TextStyle(fontWeight: FontWeight.bold)),
-                TextFormField(
-                  controller:
-                      _emailController, // Fixed: using proper controller
-                  decoration: InputDecoration(
-                    border: OutlineInputBorder(),
+                  const SizedBox(height: 10),
+                  const Text("Email Address *",
+                      style: TextStyle(fontWeight: FontWeight.bold)),
+                  TextFormField(
+                    controller: _emailController,
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(),
+                      hintText: "Enter email address",
+                    ),
+                    keyboardType: TextInputType.emailAddress,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter an email address';
+                      }
+                      if (!EmailValidator.validate(value)) {
+                        return 'Please enter a valid email address';
+                      }
+                      return null;
+                    },
                   ),
-                  keyboardType: TextInputType.emailAddress,
-                ),
-                const SizedBox(height: 10),
-                const Text("Contact Number *",
-                    style: TextStyle(fontWeight: FontWeight.bold)),
-                TextFormField(
-                  controller:
-                      _contactController, // Fixed: using proper controller
-                  decoration: InputDecoration(
-                    border: OutlineInputBorder(),
+                  const SizedBox(height: 10),
+                  const Text("Contact Number *",
+                      style: TextStyle(fontWeight: FontWeight.bold)),
+                  TextFormField(
+                    controller: _contactController,
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(),
+                      hintText: "Enter contact number",
+                    ),
+                    keyboardType: TextInputType.phone,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter a contact number';
+                      }
+                      // Basic phone number validation (you can enhance this as needed)
+                      if (value.length < 10) {
+                        return 'Please enter a valid contact number';
+                      }
+                      return null;
+                    },
                   ),
-                  keyboardType: TextInputType.phone,
-                ),
-                const SizedBox(height: 20),
-                const Text("Record Your Index Number *",
-                    style: TextStyle(fontWeight: FontWeight.bold)),
-                Text(
-                  "Speak clearly and state your index number",
-                  style: TextStyle(fontSize: 14, color: Colors.black54),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 20),
-                Center(
-                  child: AudioRecordButton(),
-                ),
-                const SizedBox(height: 20),
-                Text(
-                  "Upon clicking submit button, login credentials will be sent to your registered email address. System requires password change at first login.",
-                  style: TextStyle(fontSize: 14, color: Colors.black54),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 20),
-                Center(
-                  child: SizedBox(
-                    width: double.infinity, // Make the button take full width
-                    child: FilledButton(
-                      onPressed: () {
-                        // Handle form submission
-                      },
-                      style: FilledButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(
-                            vertical: 16, horizontal: 32),
-                        shape: RoundedRectangleBorder(
-                          borderRadius:
-                              BorderRadius.circular(4), // Small border radius
+                  const SizedBox(height: 20),
+                  Text(
+                    "Upon clicking submit button, login credentials will be sent to your registered email address. System requires password change at first login.",
+                    style: TextStyle(fontSize: 14, color: Colors.black54),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 20),
+                  Center(
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: FilledButton(
+                        onPressed: _submitForm,
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                              vertical: 16, horizontal: 32),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(4),
+                          ),
                         ),
+                        child: const Text("Create"),
                       ),
-                      child: const Text("Create"),
                     ),
                   ),
-                ),
-
-                // Add some extra padding at the bottom to ensure the last widget isn't
-                // hidden behind the keyboard when scrolled all the way down
-                const SizedBox(height: 20),
-              ],
+                  const SizedBox(height: 20),
+                ],
+              ),
             ),
           ),
         ),
       ),
     );
+  }
+
+  Future<void> _submitForm() async {
+    // Validate form
+    if (_formKey.currentState!.validate()) {
+      String name = _nameController.text;
+      String studentId = _codeController.text;
+      String email = _emailController.text;
+      String contactNumber = _contactController.text;
+      String division = _selectedDivision ?? 'No Division';
+      // Handle form submission
+      const String chars =
+          'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#\$%^&*()';
+
+      Random random = Random();
+      String password =
+          List.generate(8, (index) => chars[random.nextInt(chars.length)])
+              .join();
+
+      AuthService auth = AuthService();
+      await auth.signupStudent(
+          email: email,
+          password: password,
+          name: name,
+          studentId: studentId,
+          division: division,
+          contactNumber: contactNumber,
+          context: context);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Student is Registered Successfully!')),
+      );
+      await Future.delayed(const Duration(seconds: 2));
+      Navigator.pop(context);
+    }
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _codeController.dispose();
+    _emailController.dispose();
+    _contactController.dispose();
+    super.dispose();
   }
 }

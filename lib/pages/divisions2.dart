@@ -96,7 +96,7 @@ class _DivisionsState extends State<Divisions> {
         "createdBy": "Mr. John Doe",
         "createdDate": "01/04/2025",
         "image":
-            "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/97bdb826-4859-4cbb-b086-47b8e9fae57a", // Placeholder image
+            "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR_nP6vpfnQtFiikQCZtOXHfJvBrnDy5ddSyQ&s", // Placeholder image
       },
       {
         "name": "Faculty of Management",
@@ -106,7 +106,7 @@ class _DivisionsState extends State<Divisions> {
         "createdBy": "Ms. Jane Smith",
         "createdDate": "05/04/2025",
         "image":
-            "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/97bdb826-4859-4cbb-b086-47b8e9fae57a",
+            "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR_nP6vpfnQtFiikQCZtOXHfJvBrnDy5ddSyQ&s",
       },
     ];
 
