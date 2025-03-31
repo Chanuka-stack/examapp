@@ -1,15 +1,7 @@
-import 'package:app1/pages/login.dart';
-import 'package:app1/pages/student_pages/sudent_home.dart';
+import 'package:app1/pages/auth_pages/login.dart';
 import 'package:flutter/material.dart';
-import 'pages/home_screen.dart';
-
-import 'pages/homeTest.dart';
-import 'pages/create_student.dart';
-import 'pages/create_division.dart';
-import 'pages/components/audio_button.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
-import 'pages/student_pages/questions2.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

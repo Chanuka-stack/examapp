@@ -1,9 +1,9 @@
-import 'package:app1/pages/exams.dart';
+import 'package:app1/pages/exam_pages/exams.dart';
 import 'package:app1/pages/student_pages/sudent_home.dart';
 import 'package:flutter/material.dart';
-import 'divisions2.dart';
-import 'examiners.dart';
-import 'students.dart';
+import '../divisoin_pages/divisions2.dart';
+import '../examiner_pages/examiners.dart';
+import '../student_pages_admin/students.dart';
 import 'package:app1/data/user.dart';
 
 class Home extends StatefulWidget {

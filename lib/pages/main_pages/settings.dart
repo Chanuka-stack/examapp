@@ -1,4 +1,4 @@
-import 'package:app1/pages/create_new_password.dart';
+import 'package:app1/pages/auth_pages/create_new_password.dart';
 import 'package:flutter/material.dart';
 
 class SettingsPage extends StatefulWidget {

@@ -1,7 +1,4 @@
 import 'package:flutter/material.dart';
-import 'questions_bulk_upload.dart';
-import 'dart:io';
-import 'package:file_picker/file_picker.dart';
 
 class ExamFormScreen extends StatefulWidget {
   @override
@@ -14,12 +11,15 @@ class _ExamFormScreenState extends State<ExamFormScreen> {
   final TextEditingController _examDateController = TextEditingController();
   final TextEditingController _startTimeController = TextEditingController();
   final TextEditingController _endTimeController = TextEditingController();
+  final TextEditingController _sectionCountController = TextEditingController();
+  final TextEditingController _totalMarksController = TextEditingController();
+  final TextEditingController _examGuidelinesController =
+      TextEditingController();
 
   // Added for questions section
   List<Map<String, dynamic>> questions = [];
   String fileContent = '';
   TextEditingController fileContentController = TextEditingController();
-  bool isFileImported = false;
 
   List<String> students = [];
   @override
@@ -120,7 +120,7 @@ class _ExamFormScreenState extends State<ExamFormScreen> {
           decoration: InputDecoration(
             border: OutlineInputBorder(),
           ),
-          hint: const Text("Add a subject"),
+          hint: const Text("Add Students"),
           onChanged: (value) {
             if (value != null && !students.contains(value)) {
               setState(() {
@@ -143,64 +143,14 @@ class _ExamFormScreenState extends State<ExamFormScreen> {
   Widget _buildGuidelinesForm() {
     return Column(
       children: [
-        _buildTextField("Number of Section", _nameController),
-        _buildTextField("Total Marks", _nameController),
-        _buildTextField("Exam Guidelines", _nameController),
+        _buildTextField("Number of Section", _sectionCountController),
+        _buildTextField("Total Marks", _totalMarksController),
+        _buildTextField("Exam Guidelines", _examGuidelinesController),
         _buildButtons(),
       ],
     );
   }
 
-  // New function to import a file
-  Future<void> _importFile() async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['txt'],
-    );
-
-    if (result != null) {
-      File file = File(result.files.single.path!);
-      String content = await file.readAsString();
-
-      setState(() {
-        fileContent = content;
-        fileContentController.text = content;
-        isFileImported = true;
-      });
-    }
-  }
-
-  // New function to process the file content
-  void _processFileContent() {
-    // Here you could implement logic to parse the file content into questions
-    // For example:
-    List<String> lines = fileContentController.text.split("\n");
-    List<Map<String, dynamic>> newQuestions = [];
-    Map<String, dynamic>? currentQuestion;
-
-    for (String line in lines) {
-      line = line.trim();
-      if (line.startsWith("Q:")) {
-        currentQuestion = {
-          "title": line.substring(2).trim(),
-          "subquestions": []
-        };
-        newQuestions.add(currentQuestion);
-      } else if (line.startsWith("-") && currentQuestion != null) {
-        currentQuestion["subquestions"].add(line.substring(1).trim());
-      }
-    }
-
-    setState(() {
-      questions = newQuestions;
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${newQuestions.length} questions processed')),
-    );
-  }
-
-  // New function to add a new question
   void _addNewQuestion() {
     setState(() {
       questions.add(
@@ -221,76 +171,6 @@ class _ExamFormScreenState extends State<ExamFormScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // File import section
-        Card(
-          elevation: 2,
-          child: Padding(
-            padding: EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  "Import Questions from File",
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: FilledButton.icon(
-                        onPressed: _importFile,
-                        icon: Icon(Icons.upload_file),
-                        label: Text("Import File"),
-                        style: FilledButton.styleFrom(
-                          padding: EdgeInsets.symmetric(vertical: 12),
-                        ),
-                      ),
-                    ),
-                    SizedBox(width: 16),
-                    if (isFileImported)
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: _processFileContent,
-                          icon: Icon(Icons.check),
-                          label: Text("Process Content"),
-                          style: ElevatedButton.styleFrom(
-                            padding: EdgeInsets.symmetric(vertical: 12),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-                if (isFileImported) ...[
-                  SizedBox(height: 16),
-                  Text(
-                    "Imported Content (Edit as needed):",
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  SizedBox(height: 8),
-                  Container(
-                    height: 200,
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey.shade300),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: TextField(
-                      controller: fileContentController,
-                      maxLines: null,
-                      expands: true,
-                      decoration: InputDecoration(
-                        contentPadding: EdgeInsets.all(12),
-                        hintText: "Edit the imported content here...",
-                        border: InputBorder.none,
-                      ),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ),
 
         SizedBox(height: 24),
 

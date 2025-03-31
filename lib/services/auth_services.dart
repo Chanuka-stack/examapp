@@ -2,13 +2,13 @@ import 'dart:ffi';
 
 import 'package:app1/data/examiner.dart';
 import 'package:app1/data/student.dart';
-import 'package:app1/pages/login.dart';
+import 'package:app1/pages/auth_pages/login.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-import '../pages/home_screen.dart';
+import '../pages/main_pages/home_screen.dart';
 import '../data/user.dart';
-import '../pages/create_new_password.dart';
+import '../pages/auth_pages/create_new_password.dart';
 
 class AuthService {
   Future<void> signup(

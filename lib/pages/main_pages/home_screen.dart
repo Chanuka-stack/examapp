@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'calander.dart';
 import 'notifications.dart';
 import 'settings.dart';
-import 'home2.dart';
-import '../services/auth_services.dart';
+import 'home.dart';
+import '../../services/auth_services.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
