@@ -1,5 +1,6 @@
 import 'dart:ffi';
 
+import 'package:app1/data/exam.dart';
 import 'package:flutter/material.dart';
 
 class ExamFormScreen extends StatefulWidget {
@@ -18,11 +19,15 @@ class _ExamFormScreenState extends State<ExamFormScreen> {
   final TextEditingController _examGuidelinesController =
       TextEditingController();
 
+  ExamFirebaseService examFirebaseService = ExamFirebaseService();
+
   // Added for questions section
-  List<Map<String, dynamic>> questions = [];
+  List<Map<String, dynamic>> sections = [];
   String fileContent = '';
   TextEditingController fileContentController = TextEditingController();
 
+  String _selectedDivision = "Faculty of Management (FOM)";
+  String _selectedSubject = "Economics";
   List<String> students = [];
   @override
   Widget build(BuildContext context) {
@@ -107,8 +112,26 @@ class _ExamFormScreenState extends State<ExamFormScreen> {
           ),
         ),
         _buildTextField("Name", _nameController),
-        _buildDropdown("Division", ["Faculty of Management (FOM)"]),
-        _buildDropdown("Subject", ["Economics"]),
+        _buildDropdown(
+            "Division",
+            [
+              "Faculty of Management (FOM)",
+              "Faculty of Science",
+              "Faculty of Arts"
+            ],
+            _selectedDivision, (value) {
+          setState(() {
+            _selectedDivision = value!;
+          });
+        }),
+        _buildDropdown(
+            "Subject",
+            ["Economics", "Mathematics", "History", "Computer Science"],
+            _selectedSubject, (value) {
+          setState(() {
+            _selectedSubject = value!;
+          });
+        }),
         _buildDatePicker("Exam Date", _examDateController),
         _buildTimePicker("Start Time", _startTimeController),
         _buildTimePicker("End Time", _endTimeController),
@@ -187,130 +210,25 @@ class _ExamFormScreenState extends State<ExamFormScreen> {
     );
   }
 
-  void _addNewQuestion() {
-    setState(() {
-      questions.add(
-          {"title": "Question ${questions.length + 1}", "subquestions": []});
-    });
-  }
-
   // New function to add a subquestion
-  void _addNewSubquestion(int index) {
+  void _addNewQuestion(int sectionIndex) {
     setState(() {
-      questions[index]["subquestions"]
-          .add("Subquestion ${questions[index]["subquestions"].length + 1}");
+      int questionCount = sections[sectionIndex]['questions'].length;
+      sections[sectionIndex]['questions'].add({
+        'title': 'QUESTION ${(questionCount + 1).toString().padLeft(2, '0')}',
+        'subQuestions': [],
+      });
     });
   }
 
-  /*Widget _buildQuestionsForm() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // File import section
-
-        SizedBox(height: 24),
-
-        // Manual question section
-        Center(
-          child: FilledButton(
-            onPressed: _addNewQuestion,
-            style: FilledButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 32),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(4),
-              ),
-            ),
-            child: Text("Add New Question"),
-          ),
-        ),
-
-        SizedBox(height: 16),
-
-        // Questions list
-        ...questions.asMap().entries.map((entry) {
-          int questionIndex = entry.key;
-          var question = entry.value;
-
-          return ExpansionTile(
-            title: Text(question["title"]),
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(0),
-                child: TextFormField(
-                  initialValue: question["title"],
-                  decoration: InputDecoration(
-                    labelText: "Question Text",
-                    border: OutlineInputBorder(),
-                  ),
-                  onChanged: (value) {
-                    setState(() {
-                      question["title"] = value;
-                    });
-                  },
-                ),
-              ),
-              Column(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  ElevatedButton(
-                    onPressed: () => _addNewSubquestion(questionIndex),
-                    child: Text("Add Subquestion"),
-                  ),
-                  ElevatedButton(
-                    onPressed: () {
-                      setState(() {
-                        questions.removeAt(questionIndex);
-                      });
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red.shade100,
-                      foregroundColor: Colors.red.shade900,
-                    ),
-                    child: Text("Delete Question"),
-                  ),
-                ],
-              ),
-              ...question["subquestions"]
-                  .asMap()
-                  .entries
-                  .map<Widget>((subEntry) {
-                int subIndex = subEntry.key;
-                String subquestion = subEntry.value;
-
-                return ListTile(
-                  title: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8.0),
-                    child: TextFormField(
-                      initialValue: subquestion,
-                      decoration: InputDecoration(
-                        labelText: "Subquestion ${subIndex + 1}",
-                        border: OutlineInputBorder(),
-                        suffixIcon: IconButton(
-                          icon: Icon(Icons.delete_outline, color: Colors.red),
-                          onPressed: () {
-                            setState(() {
-                              question["subquestions"].removeAt(subIndex);
-                            });
-                          },
-                        ),
-                      ),
-                      onChanged: (value) {
-                        setState(() {
-                          question["subquestions"][subIndex] = value;
-                        });
-                      },
-                    ),
-                  ),
-                );
-              }).toList(),
-            ],
-          );
-        }).toList(),
-
-        _buildButtons(),
-      ],
-    );
-  }*/
+  void _addNewSubquestion(int sectionIndex, int questionIndex) {
+    setState(() {
+      sections[sectionIndex]['questions'][questionIndex]['subQuestions'].add({
+        'text': 'New Subquestion',
+        'marks': 0,
+      });
+    });
+  }
 
   Widget _buildQuestionsForm() {
     // Create a list to hold all the sections
@@ -325,21 +243,27 @@ class _ExamFormScreenState extends State<ExamFormScreen> {
         ),
       )
     ];
-    // Using int.parse() to convert string to int
+    int sectionCount = int.tryParse(_sectionCountController.text) ?? 0;
 
-    int count = int.tryParse(_sectionCountController.text) ?? 0;
-    // Loop through the count to create multiple section parent tiles
-    for (int i = 0; i < count; i++) {
+    // Initialize the sections list if it's empty or has wrong number of sections
+    if (sections.length != sectionCount) {
+      _initializeSections(sectionCount);
+    }
+
+    // Loop through each section in the sections list
+    for (int sectionIndex = 0; sectionIndex < sections.length; sectionIndex++) {
+      var section = sections[sectionIndex];
+
       sectionWidgets.add(Card(
         margin: const EdgeInsets.only(bottom: 16),
         child: ExpansionTile(
-          title: Text("Section ${i + 1}"),
+          title: Text(section['title']),
           initiallyExpanded: true,
           children: [
-            // This is your existing "Add New Question" button
+            // Button to add a new question to this section
             Center(
               child: FilledButton(
-                onPressed: _addNewQuestion,
+                onPressed: () => _addNewQuestion(sectionIndex),
                 style: FilledButton.styleFrom(
                   padding:
                       const EdgeInsets.symmetric(vertical: 16, horizontal: 32),
@@ -351,8 +275,9 @@ class _ExamFormScreenState extends State<ExamFormScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            // Questions list
-            ...questions.asMap().entries.map((entry) {
+
+            // Questions list for this section
+            ...section['questions'].asMap().entries.map((entry) {
               int questionIndex = entry.key;
               var question = entry.value;
 
@@ -360,7 +285,7 @@ class _ExamFormScreenState extends State<ExamFormScreen> {
                 title: Text(question["title"]),
                 children: [
                   Padding(
-                    padding: const EdgeInsets.all(0),
+                    padding: const EdgeInsets.all(8.0),
                     child: TextFormField(
                       initialValue: question["title"],
                       decoration: InputDecoration(
@@ -368,23 +293,23 @@ class _ExamFormScreenState extends State<ExamFormScreen> {
                         border: OutlineInputBorder(),
                       ),
                       onChanged: (value) {
-                        setState(() {
-                          question["title"] = value;
-                        });
+                        setState(() {});
                       },
                     ),
                   ),
-                  Column(
+                  Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
                       ElevatedButton(
-                        onPressed: () => _addNewSubquestion(questionIndex),
+                        onPressed: () =>
+                            _addNewSubquestion(sectionIndex, questionIndex),
                         child: Text("Add Subquestion"),
                       ),
                       ElevatedButton(
                         onPressed: () {
                           setState(() {
-                            questions.removeAt(questionIndex);
+                            sections[sectionIndex]['questions']
+                                .removeAt(questionIndex);
                           });
                         },
                         style: ElevatedButton.styleFrom(
@@ -395,36 +320,63 @@ class _ExamFormScreenState extends State<ExamFormScreen> {
                       ),
                     ],
                   ),
-                  ...question["subquestions"]
+
+                  // Subquestions for this question
+                  ...question["subQuestions"]
                       .asMap()
                       .entries
                       .map<Widget>((subEntry) {
                     int subIndex = subEntry.key;
-                    String subquestion = subEntry.value;
+                    var subQuestion = subEntry.value;
 
                     return ListTile(
                       title: Padding(
                         padding: const EdgeInsets.symmetric(vertical: 8.0),
-                        child: TextFormField(
-                          initialValue: subquestion,
-                          decoration: InputDecoration(
-                            labelText: "Subquestion ${subIndex + 1}",
-                            border: OutlineInputBorder(),
-                            suffixIcon: IconButton(
-                              icon:
-                                  Icon(Icons.delete_outline, color: Colors.red),
-                              onPressed: () {
+                        child: Column(
+                          children: [
+                            TextFormField(
+                              initialValue: subQuestion["text"],
+                              decoration: InputDecoration(
+                                labelText: "Subquestion ${subIndex + 1}",
+                                border: OutlineInputBorder(),
+                              ),
+                              onChanged: (value) {
                                 setState(() {
-                                  question["subquestions"].removeAt(subIndex);
+                                  sections[sectionIndex]['questions']
+                                          [questionIndex]["subQuestions"]
+                                      [subIndex]["text"] = value;
                                 });
                               },
                             ),
-                          ),
-                          onChanged: (value) {
-                            setState(() {
-                              question["subquestions"][subIndex] = value;
-                            });
-                          },
+                            SizedBox(height: 8),
+                            TextFormField(
+                              initialValue: subQuestion["marks"].toString(),
+                              decoration: InputDecoration(
+                                labelText: "Marks",
+                                border: OutlineInputBorder(),
+                                suffixIcon: IconButton(
+                                  icon: Icon(Icons.delete_outline,
+                                      color: Colors.red),
+                                  onPressed: () {
+                                    setState(() {
+                                      sections[sectionIndex]['questions']
+                                              [questionIndex]["subQuestions"]
+                                          .removeAt(subIndex);
+                                    });
+                                  },
+                                ),
+                              ),
+                              keyboardType: TextInputType.number,
+                              onChanged: (value) {
+                                setState(() {
+                                  sections[sectionIndex]['questions']
+                                              [questionIndex]["subQuestions"]
+                                          [subIndex]["marks"] =
+                                      int.tryParse(value) ?? 0;
+                                });
+                              },
+                            ),
+                          ],
                         ),
                       ),
                     );
@@ -436,12 +388,26 @@ class _ExamFormScreenState extends State<ExamFormScreen> {
         ),
       ));
     }
-
+    sectionWidgets.add(_buildQuestionButtons());
     // Return all the sections in a column
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: sectionWidgets,
     );
   }
+
+  void _initializeSections(int count) {
+    setState(() {
+      // Create a new list with the desired number of sections
+      sections = List.generate(
+          count,
+          (index) => {
+                'title': 'SECTION ${(index + 1).toString().padLeft(2, '0')}',
+                'questions': [],
+              });
+    });
+  }
+// Helper method for adding new questions
 
   Widget _buildTextField(String label, TextEditingController controller) {
     return Padding(
@@ -456,10 +422,12 @@ class _ExamFormScreenState extends State<ExamFormScreen> {
     );
   }
 
-  Widget _buildDropdown(String label, List<String> items) {
+  Widget _buildDropdown(String label, List<String> items, String currentValue,
+      Function(String?) onChanged) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: DropdownButtonFormField<String>(
+        value: currentValue,
         decoration: InputDecoration(
           labelText: label,
           border: OutlineInputBorder(),
@@ -470,7 +438,7 @@ class _ExamFormScreenState extends State<ExamFormScreen> {
             child: Text(value),
           );
         }).toList(),
-        onChanged: (newValue) {},
+        onChanged: onChanged,
       ),
     );
   }
@@ -534,25 +502,6 @@ class _ExamFormScreenState extends State<ExamFormScreen> {
     return Column(
       children: [
         SizedBox(height: 20),
-        SizedBox(
-          width: double.infinity, // Make the button take full width
-          child: FilledButton(
-            onPressed: () {
-              if (_currentStep < 3) {
-                setState(() {
-                  _currentStep++;
-                });
-              }
-            },
-            style: FilledButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 32),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(4), // Small border radius
-              ),
-            ),
-            child: const Text("Next"),
-          ),
-        ),
         SizedBox(height: 20),
         SizedBox(
           width: double.infinity, // Make the button take full width
@@ -565,6 +514,119 @@ class _ExamFormScreenState extends State<ExamFormScreen> {
               ),
             ),
             child: Text("Save as Draft"),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildQuestionButtons() {
+    return Column(
+      children: [
+        SizedBox(height: 20),
+        SizedBox(
+          width: double.infinity, // Make the button take full width
+          child: OutlinedButton(
+            onPressed: () {
+              String name = _nameController.text;
+              String examDate = _examDateController.text;
+              String startTime = _startTimeController.text;
+              String endTime = _endTimeController.text;
+              int sectionCount =
+                  int.tryParse(_sectionCountController.text) ?? 0;
+              int totalMarks = int.tryParse(_totalMarksController.text) ?? 0;
+              String guidelines = _examGuidelinesController.text;
+
+              // Call Firebase service
+              examFirebaseService
+                  .createExam(
+                name: name,
+                division: _selectedDivision,
+                subject: _selectedSubject,
+                examDate: examDate,
+                startTime: startTime,
+                endTime: endTime,
+                studentIds: students,
+                sections: sectionCount,
+                totalMarks: totalMarks,
+                guidelines: guidelines,
+                // Replace with actual user ID
+              )
+                  .then((examId) {
+                // Save the questions
+                examFirebaseService.saveExamQuestions(
+                  examId: examId,
+                  sections: sections,
+                );
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text("Exam saved as draft")),
+                );
+              });
+            },
+            style: FilledButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 32),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(4), // Small border radius
+              ),
+            ),
+            child: Text("Save as Draft"),
+          ),
+        ),
+        SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity, // Make the button take full width
+          child: FilledButton(
+            onPressed: () {
+              String name = _nameController.text;
+              String examDate = _examDateController.text;
+              String startTime = _startTimeController.text;
+              String endTime = _endTimeController.text;
+              int sectionCount =
+                  int.tryParse(_sectionCountController.text) ?? 0;
+              int totalMarks = int.tryParse(_totalMarksController.text) ?? 0;
+              String guidelines = _examGuidelinesController.text;
+
+              examFirebaseService
+                  .createExam(
+                name: name,
+                division: _selectedDivision,
+                subject: _selectedSubject,
+                examDate: examDate,
+                startTime: startTime,
+                endTime: endTime,
+                studentIds: students,
+                sections: sectionCount,
+                totalMarks: totalMarks,
+                guidelines: guidelines,
+              )
+                  .then((examId) {
+                // Save the questions
+                examFirebaseService
+                    .saveExamQuestions(
+                  examId: examId,
+                  sections: sections,
+                )
+                    .then((_) {
+                  // Publish the exam
+                  examFirebaseService.publishExam(examId);
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text("Exam published successfully")),
+                  );
+
+                  // Navigate back after publishing
+                  Navigator.pop(context);
+                });
+              });
+            },
+            style: FilledButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 32),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(4), // Small border radius
+              ),
+            ),
+            child: Text("Publish"),
           ),
         ),
       ],

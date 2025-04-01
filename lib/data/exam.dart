@@ -1,10 +1,19 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:app1/data/user.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
-class Exam {
+class ExamFirebaseService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // Create a new exam document with basic details
+  // Collection references
+  final CollectionReference _examsCollection;
+  final CollectionReference _examQuestionsCollection;
+
+  ExamFirebaseService()
+      : _examsCollection = FirebaseFirestore.instance.collection('exams'),
+        _examQuestionsCollection =
+            FirebaseFirestore.instance.collection('exam_questions');
+
+  // Create a new exam with basic details
   Future<String> createExam({
     required String name,
     required String division,
@@ -18,8 +27,8 @@ class Exam {
     required String guidelines,
   }) async {
     try {
-      // Create the main exam document
-      DocumentReference examRef = await _firestore.collection('exams').add({
+      // Create the exam document
+      DocumentReference examRef = await _examsCollection.add({
         'name': name,
         'division': division,
         'subject': subject,
@@ -42,14 +51,14 @@ class Exam {
     }
   }
 
-  // Save questions in a separate document
+  // Save questions structure to the exam_questions collection
   Future<void> saveExamQuestions({
     required String examId,
-    required List<Map<String, dynamic>> questions,
+    required List<Map<String, dynamic>> sections,
   }) async {
     try {
-      await _firestore.collection('exam_questions').doc(examId).set({
-        'questions': questions,
+      await _examQuestionsCollection.doc(examId).set({
+        'sections': sections,
         'updatedAt': FieldValue.serverTimestamp(),
       });
     } catch (e) {
@@ -58,34 +67,46 @@ class Exam {
     }
   }
 
-  // Save exam as draft (update existing exam)
+  // Update an existing exam (save as draft)
+  Future<void> updateExam({
+    required String examId,
+    required Map<String, dynamic> examData,
+  }) async {
+    try {
+      await _examsCollection.doc(examId).update({
+        ...examData,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      print("Error updating exam: $e");
+      throw e;
+    }
+  }
+
+  // Save full exam as draft (both exam details and questions)
   Future<void> saveExamAsDraft({
     required String examId,
     required Map<String, dynamic> examData,
-    List<Map<String, dynamic>>? questions,
+    required List<Map<String, dynamic>> sections,
   }) async {
     try {
-      // Start a batch write
+      // Create a batch write operation
       WriteBatch batch = _firestore.batch();
 
-      // Update the main exam document
-      DocumentReference examRef = _firestore.collection('exams').doc(examId);
-      Map<String, dynamic> updateData = {
+      // Update exam details
+      DocumentReference examRef = _examsCollection.doc(examId);
+      batch.update(examRef, {
         ...examData,
         'updatedAt': FieldValue.serverTimestamp(),
         'status': 'draft',
-      };
-      batch.update(examRef, updateData);
+      });
 
-      // If questions are provided, update them as well
-      if (questions != null) {
-        DocumentReference questionsRef =
-            _firestore.collection('exam_questions').doc(examId);
-        batch.set(questionsRef, {
-          'questions': questions,
-          'updatedAt': FieldValue.serverTimestamp(),
-        });
-      }
+      // Update exam questions
+      DocumentReference questionsRef = _examQuestionsCollection.doc(examId);
+      batch.set(questionsRef, {
+        'sections': sections,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
 
       // Commit the batch
       await batch.commit();
@@ -95,10 +116,10 @@ class Exam {
     }
   }
 
-  // Publish exam (change status from draft to published)
+  // Publish an exam (change status from draft to published)
   Future<void> publishExam(String examId) async {
     try {
-      await _firestore.collection('exams').doc(examId).update({
+      await _examsCollection.doc(examId).update({
         'status': 'published',
         'publishedAt': FieldValue.serverTimestamp(),
       });
@@ -108,49 +129,51 @@ class Exam {
     }
   }
 
-  // Get exam details
-  Future<Map<String, dynamic>?> getExam(String examId) async {
+  // Get exam details by ID
+  Future<Map<String, dynamic>?> getExamById(String examId) async {
     try {
-      DocumentSnapshot examDoc =
-          await _firestore.collection('exams').doc(examId).get();
+      DocumentSnapshot examDoc = await _examsCollection.doc(examId).get();
 
       if (examDoc.exists) {
-        return examDoc.data() as Map<String, dynamic>;
+        Map<String, dynamic> data = examDoc.data() as Map<String, dynamic>;
+        data['id'] = examDoc.id;
+        return data;
       } else {
         return null;
       }
     } catch (e) {
-      print("Error fetching exam: $e");
+      print("Error fetching exam details: $e");
       throw e;
     }
   }
 
-  // Get exam questions
-  Future<List<Map<String, dynamic>>> getExamQuestions(String examId) async {
+  // Get exam sections and questions
+  Future<List<Map<String, dynamic>>> getExamSections(String examId) async {
     try {
       DocumentSnapshot questionsDoc =
-          await _firestore.collection('exam_questions').doc(examId).get();
+          await _examQuestionsCollection.doc(examId).get();
 
       if (questionsDoc.exists) {
         Map<String, dynamic> data = questionsDoc.data() as Map<String, dynamic>;
-        return List<Map<String, dynamic>>.from(data['questions']);
+        return List<Map<String, dynamic>>.from(data['sections']);
       } else {
         return [];
       }
     } catch (e) {
-      print("Error fetching exam questions: $e");
+      print("Error fetching exam sections: $e");
       throw e;
     }
   }
 
   // Get all exams (with optional filters)
-  Future<List<Map<String, dynamic>>> getAllExams({
+  Future<List<Map<String, dynamic>>> getExams({
     String? status,
     String? division,
     String? subject,
+    String? createdBy,
   }) async {
     try {
-      Query query = _firestore.collection('exams');
+      Query query = _examsCollection;
 
       // Apply filters if provided
       if (status != null) {
@@ -162,13 +185,19 @@ class Exam {
       if (subject != null) {
         query = query.where('subject', isEqualTo: subject);
       }
+      if (createdBy != null) {
+        query = query.where('createdBy', isEqualTo: createdBy);
+      }
+
+      // Order by creation time (newest first)
+      query = query.orderBy('createdAt', descending: true);
 
       // Execute query
       QuerySnapshot snapshot = await query.get();
 
       return snapshot.docs.map((doc) {
         Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-        data['id'] = doc.id; // Add document ID
+        data['id'] = doc.id;
         return data;
       }).toList();
     } catch (e) {
@@ -180,10 +209,10 @@ class Exam {
   // Get exams by student ID
   Future<List<Map<String, dynamic>>> getExamsByStudent(String studentId) async {
     try {
-      QuerySnapshot snapshot = await _firestore
-          .collection('exams')
+      QuerySnapshot snapshot = await _examsCollection
           .where('studentIds', arrayContains: studentId)
           .where('status', isEqualTo: 'published')
+          .orderBy('examDate')
           .get();
 
       return snapshot.docs.map((doc) {
@@ -202,16 +231,39 @@ class Exam {
     try {
       WriteBatch batch = _firestore.batch();
 
-      // Delete the main exam document
-      batch.delete(_firestore.collection('exams').doc(examId));
-
-      // Delete the questions document
-      batch.delete(_firestore.collection('exam_questions').doc(examId));
+      // Delete exam document
+      batch.delete(_examsCollection.doc(examId));
+      // Delete exam questions document
+      batch.delete(_examQuestionsCollection.doc(examId));
 
       // Commit the batch
       await batch.commit();
     } catch (e) {
       print("Error deleting exam: $e");
+      throw e;
+    }
+  }
+
+  // Calculate exam statistics
+  Future<Map<String, dynamic>> getExamStatistics(String examId) async {
+    try {
+      // Get exam details first
+      Map<String, dynamic>? exam = await getExamById(examId);
+      if (exam == null) {
+        throw Exception("Exam not found");
+      }
+
+      // This is a placeholder for actual statistics calculation
+      // In a real app, you would gather data from student submissions
+      return {
+        'totalStudents': exam['studentIds']?.length ?? 0,
+        'averageScore': 0, // Would calculate from actual submissions
+        'highestScore': 0,
+        'lowestScore': 0,
+        'completionRate': 0,
+      };
+    } catch (e) {
+      print("Error calculating exam statistics: $e");
       throw e;
     }
   }
