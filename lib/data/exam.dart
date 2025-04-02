@@ -14,18 +14,18 @@ class ExamFirebaseService {
             FirebaseFirestore.instance.collection('exam_questions');
 
   // Create a new exam with basic details
-  Future<String> createExam({
-    required String name,
-    required String division,
-    required String subject,
-    required String examDate,
-    required String startTime,
-    required String endTime,
-    required List<String> studentIds,
-    required int sections,
-    required int totalMarks,
-    required String guidelines,
-  }) async {
+  Future<String> createExam(
+      {required String name,
+      required String division,
+      required String subject,
+      required String examDate,
+      required String startTime,
+      required String endTime,
+      required List<String> studentIds,
+      required int sections,
+      required int totalMarks,
+      required String guidelines,
+      required String status}) async {
     try {
       // Create the exam document
       DocumentReference examRef = await _examsCollection.add({
@@ -41,7 +41,7 @@ class ExamFirebaseService {
         'guidelines': guidelines,
         'createdAt': FieldValue.serverTimestamp(),
         'createdBy': await UserL().getCurrentUserName(),
-        'status': 'draft', // draft, published, completed
+        'status': status, // draft, published, completed
       });
 
       return examRef.id;

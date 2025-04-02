@@ -187,8 +187,11 @@ class _DivisionFormScreenState extends State<DivisionFormScreen> {
                         // Show loading indicator or disable button while processing
                         // You could add a loading state here if needed
 
-                        await Division().createDivision(_nameController.text,
-                            _codeController.text, subjects, _selectedImage);
+                        await Division().createDivisionWithoutImage(
+                            _nameController.text,
+                            _codeController.text,
+                            subjects,
+                            _selectedImage);
 
                         // Navigate back to divisions page
                         Navigator.pop(context);

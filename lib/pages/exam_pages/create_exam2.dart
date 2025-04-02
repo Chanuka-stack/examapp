@@ -550,6 +550,7 @@ class _ExamFormScreenState extends State<ExamFormScreen> {
                 sections: sectionCount,
                 totalMarks: totalMarks,
                 guidelines: guidelines,
+                status: 'Draft',
                 // Replace with actual user ID
               )
                   .then((examId) {
@@ -589,17 +590,17 @@ class _ExamFormScreenState extends State<ExamFormScreen> {
 
               examFirebaseService
                   .createExam(
-                name: name,
-                division: _selectedDivision,
-                subject: _selectedSubject,
-                examDate: examDate,
-                startTime: startTime,
-                endTime: endTime,
-                studentIds: students,
-                sections: sectionCount,
-                totalMarks: totalMarks,
-                guidelines: guidelines,
-              )
+                      name: name,
+                      division: _selectedDivision,
+                      subject: _selectedSubject,
+                      examDate: examDate,
+                      startTime: startTime,
+                      endTime: endTime,
+                      studentIds: students,
+                      sections: sectionCount,
+                      totalMarks: totalMarks,
+                      guidelines: guidelines,
+                      status: 'Active')
                   .then((examId) {
                 // Save the questions
                 examFirebaseService
