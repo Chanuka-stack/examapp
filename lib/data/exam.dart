@@ -27,14 +27,25 @@ class ExamFirebaseService {
       required String guidelines,
       required String status}) async {
     try {
-      // Create the exam document
+      // Parse the date string (assuming format: dd/MM/yyyy)
+      List<String> dateParts = examDate.split('/');
+      int day = int.parse(dateParts[0]);
+      int month = int.parse(dateParts[1]);
+      int year = int.parse(dateParts[2]);
+
+      // Parse time strings (assuming format from TimeOfDay.format: h:mm AM/PM)
+      DateTime examDateTime = DateTime(year, month, day);
+
+      // Create the exam document with timestamps
       DocumentReference examRef = await _examsCollection.add({
         'name': name,
         'division': division,
         'subject': subject,
-        'examDate': examDate,
-        'startTime': startTime,
-        'endTime': endTime,
+        'examDate': Timestamp.fromDate(examDateTime),
+        'startTime': startTime, // Keep the original string for display
+        'endTime': endTime, // Keep the original string for display
+        'examDateTime':
+            Timestamp.fromDate(examDateTime), // Add this new field for querying
         'studentIds': studentIds,
         'sections': sections,
         'totalMarks': totalMarks,
@@ -120,7 +131,7 @@ class ExamFirebaseService {
   Future<void> publishExam(String examId) async {
     try {
       await _examsCollection.doc(examId).update({
-        'status': 'published',
+        'status': 'Active',
         'publishedAt': FieldValue.serverTimestamp(),
       });
     } catch (e) {
@@ -264,6 +275,51 @@ class ExamFirebaseService {
       };
     } catch (e) {
       print("Error calculating exam statistics: $e");
+      throw e;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getUpcomingExams({
+    String? division,
+    String? subject,
+    String? studentId,
+  }) async {
+    try {
+      // Get current date at midnight
+      DateTime now = DateTime.now();
+      DateTime today = DateTime(now.year, now.month, now.day);
+      Timestamp todayTimestamp = Timestamp.fromDate(today);
+
+      // Start with base query using the timestamp field
+      Query query = _examsCollection
+          .where('status', isEqualTo: 'Active')
+          .where('examDateTime', isGreaterThanOrEqualTo: todayTimestamp)
+          .orderBy('examDateTime');
+
+      // Apply optional filters
+      if (division != null) {
+        query = query.where('division', isEqualTo: division);
+      }
+
+      if (subject != null) {
+        query = query.where('subject', isEqualTo: subject);
+      }
+
+      // If studentId is provided, filter by student enrollment
+      if (studentId != null) {
+        query = query.where('studentIds', arrayContains: studentId);
+      }
+
+      // Execute query
+      QuerySnapshot snapshot = await query.get();
+
+      return snapshot.docs.map((doc) {
+        Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+        data['id'] = doc.id;
+        return data;
+      }).toList();
+    } catch (e) {
+      print("Error fetching upcoming exams: $e");
       throw e;
     }
   }

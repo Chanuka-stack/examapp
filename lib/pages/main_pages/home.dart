@@ -1,6 +1,9 @@
+import 'package:app1/data/exam.dart';
 import 'package:app1/pages/exam_pages/exams.dart';
 import 'package:app1/pages/student_pages/sudent_home.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../divisoin_pages/divisions2.dart';
 import '../examiner_pages/examiners.dart';
 import '../student_pages_admin/students.dart';
@@ -16,11 +19,44 @@ class Home extends StatefulWidget {
 class _HomeState extends State<Home> {
   UserL user = UserL();
   String userRole = '';
+  ExamFirebaseService examFirebaseService = ExamFirebaseService();
+  List<Map<String, dynamic>> _upcomingExams = [];
+  late Future<List<Map<String, dynamic>>> _examsFuture; // Cached Future
 
   @override
   void initState() {
     super.initState();
+    _examsFuture = _fetchUpcomingExams(); // Fetch once on initialization
     _fetchUserRole();
+  }
+
+  String formatDateFromTimestamp(dynamic timestamp) {
+    if (timestamp == null) return 'N/A';
+    if (timestamp is Timestamp) {
+      DateTime dateTime = timestamp.toDate();
+      return DateFormat('yyyy/MM/dd')
+          .format(dateTime); // Using intl's DateFormat
+    }
+    return timestamp.toString();
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchUpcomingExams() async {
+    try {
+      final exams = await examFirebaseService.getUpcomingExams();
+      setState(() {
+        _upcomingExams = exams; // Update local list for other uses if needed
+      });
+      return exams;
+    } catch (e) {
+      print("Error fetching upcoming exams: $e");
+      return []; // Return empty list on error
+    }
+  }
+
+  void _refreshExams() {
+    setState(() {
+      _examsFuture = _fetchUpcomingExams(); // Refresh the Future when needed
+    });
   }
 
   Future<void> _fetchUserRole() async {
@@ -28,8 +64,6 @@ class _HomeState extends State<Home> {
     setState(() {
       userRole = role;
     });
-
-    // Navigate to another page if the role is 'student'
   }
 
   @override
@@ -66,31 +100,59 @@ class _HomeState extends State<Home> {
               ],
             ),
           ),
-          const Padding(
-            padding: EdgeInsets.all(8.0),
-            child: Text(
-              "Upcoming Exams",
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          // Upcoming Exams Header with Refresh Button
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  "Upcoming Exams",
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.refresh),
+                  onPressed: _refreshExams, // Manual refresh option
+                ),
+              ],
             ),
           ),
+          // Exam List with FutureBuilder
           Expanded(
-            child: ListView.builder(
-              itemCount: 4,
-              itemBuilder: (context, index) {
-                return Card(
-                  margin:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: ListTile(
-                    leading: const Icon(Icons.image, color: Colors.blue),
-                    title: Text(
-                      index % 2 == 0
-                          ? "2nd Year 2nd Semester Economics"
-                          : "4th Year 1st Semester Social Science",
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    subtitle: const Text("02/10/2025, 10.00AM - 12.00PM"),
-                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                  ),
+            child: FutureBuilder<List<Map<String, dynamic>>>(
+              future:
+                  _examsFuture, // Cached Future, refreshed via _refreshExams
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (snapshot.hasError) {
+                  return Center(child: Text("Error: ${snapshot.error}"));
+                }
+                final exams = snapshot.data ?? [];
+                if (exams.isEmpty) {
+                  return const Center(child: Text("No upcoming exams"));
+                }
+                return ListView.builder(
+                  itemCount: exams.length,
+                  itemBuilder: (context, index) {
+                    final exam = exams[index];
+                    return Card(
+                      margin: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
+                      child: ListTile(
+                        leading:
+                            const Icon(Icons.assignment, color: Colors.blue),
+                        title: Text(
+                          "${exam['division']} ${exam['subject']}",
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        subtitle: Text(
+                            "${formatDateFromTimestamp(exam['examDate'])}, ${exam['startTime']} - ${exam['endTime']}"),
+                        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                      ),
+                    );
+                  },
                 );
               },
             ),
@@ -106,9 +168,12 @@ class _HomeState extends State<Home> {
       children: [
         IconButton(
           icon: Icon(icon, size: 32, color: Colors.blue),
-          onPressed: () {
-            Navigator.push(
-                context, MaterialPageRoute(builder: (context) => screen));
+          onPressed: () async {
+            await Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => screen),
+            );
+            _refreshExams(); // Refresh exams when returning from any screen
           },
         ),
         Text(label),

@@ -26,6 +26,7 @@ dependencies:
   flutter_timer_countdown: ^1.0.7
   image_picker: ^1.1.2
   firebase_storage: ^12.4.4
+  intl: ^0.20.2
  
   
  
