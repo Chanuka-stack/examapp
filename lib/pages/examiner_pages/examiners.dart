@@ -1,5 +1,8 @@
+import 'package:app1/data/examiner.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'create_examiner.dart';
 
 class Examiners extends StatefulWidget {
@@ -11,6 +14,16 @@ class Examiners extends StatefulWidget {
 
 class _ExaminersState extends State<Examiners> {
   int? value = 0;
+
+  String formatDateFromTimestamp(dynamic timestamp) {
+    if (timestamp == null) return 'N/A';
+    if (timestamp is Timestamp) {
+      DateTime dateTime = timestamp.toDate();
+      return DateFormat('yyyy/MM/dd')
+          .format(dateTime); // Using intl's DateFormat
+    }
+    return timestamp.toString();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -87,7 +100,7 @@ class _ExaminersState extends State<Examiners> {
 
   // Function to Filter Content Based on Selection
   Widget getSelectedContent() {
-    List<Map<String, dynamic>> allExaminers = [
+    /*List<Map<String, dynamic>> allExaminers = [
       {
         "name": "Adam Gilichrist",
         "id": "EX000123",
@@ -109,29 +122,47 @@ class _ExaminersState extends State<Examiners> {
         "createdBy": "Ms. Jane Smith",
         "createdDate": "05/04/2025",
       },
-    ];
+    ];*/
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: Examiner().getAllExaminers(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
-    List<Map<String, dynamic>> activeExaminers =
-        allExaminers.where((div) => div["status"] == "Active").toList();
-    List<Map<String, dynamic>> deletedExaminers = [];
+        if (snapshot.hasError) {
+          return Center(child: Text('Error: ${snapshot.error}'));
+        }
 
-    List<Map<String, dynamic>> displayList;
-    switch (value) {
-      case 1:
-        displayList = activeExaminers;
-        break;
-      case 2:
-        displayList = deletedExaminers;
-        break;
-      default:
-        displayList = allExaminers;
-    }
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return const Center(child: Text('No examiners found'));
+        }
 
-    return ListView.builder(
-      itemCount: displayList.length,
-      itemBuilder: (context, index) {
-        var examiner = displayList[index];
-        return buildExaminerCard(examiner);
+        // Now we have the data and can work with it
+        List<Map<String, dynamic>> allExaminers = snapshot.data!;
+        List<Map<String, dynamic>> activeExaminers =
+            allExaminers.where((div) => div["status"] == "Active").toList();
+        List<Map<String, dynamic>> deletedExaminers =
+            allExaminers.where((div) => div["status"] != "Active").toList();
+
+        List<Map<String, dynamic>> displayList;
+        switch (value) {
+          case 1:
+            displayList = activeExaminers;
+            break;
+          case 2:
+            displayList = deletedExaminers;
+            break;
+          default:
+            displayList = allExaminers;
+        }
+
+        return ListView.builder(
+            itemCount: displayList.length,
+            itemBuilder: (context, index) {
+              var examiner = displayList[index];
+              return buildExaminerCard(examiner);
+            });
       },
     );
   }
@@ -150,7 +181,7 @@ class _ExaminersState extends State<Examiners> {
               children: [
                 Text("Examiner (ID))",
                     style: const TextStyle(color: Colors.black54)),
-                Text("\n${examiner["name"]}\n(${examiner["id"]})")
+                Text("\n${examiner["name"]}\n(${examiner["examinerId"]})")
               ],
             ),
             Column(
@@ -185,7 +216,7 @@ class _ExaminersState extends State<Examiners> {
                       children: [
                         Text("Contact Number",
                             style: const TextStyle(color: Colors.black54)),
-                        Text(examiner["mobile"])
+                        Text(examiner["contactNumber"])
                       ],
                     )
                   ],
@@ -209,7 +240,7 @@ class _ExaminersState extends State<Examiners> {
                       children: [
                         Text("Created Date",
                             style: const TextStyle(color: Colors.black54)),
-                        Text(examiner["createdDate"])
+                        Text(formatDateFromTimestamp(examiner["createdAt"]))
                       ],
                     )
                   ],

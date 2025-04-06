@@ -19,6 +19,7 @@ class Division {
         'imageUrl': null, // Will be updated if image is uploaded
         'createdAt': FieldValue.serverTimestamp(),
         'createdBy': await UserL().getCurrentUserName(),
+        'status': 'Active',
       };
 
       // Upload image if provided
@@ -62,6 +63,7 @@ class Division {
             'https://www.google.com/url?sa=i&url=https%3A%2F%2Fsudheerappd.blogspot.com%2F2017%2F07%2Fbeauty-of-uok.html&psig=AOvVaw3Nc7voXrJvL1_LtzucQB6S&ust=1743639199752000&source=images&cd=vfe&opi=89978449&ved=0CBQQjRxqFwoTCNjGqqqIuIwDFQAAAAAdAAAAABAE', // Will be updated if image is uploaded
         'createdAt': FieldValue.serverTimestamp(),
         'createdBy': await UserL().getCurrentUserName(),
+        'status': 'Active',
       };
 
       // Upload image if provide

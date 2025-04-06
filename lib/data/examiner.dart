@@ -12,6 +12,7 @@ class Examiner {
       'contactNumber': contactNumber,
       'createdAt': FieldValue.serverTimestamp(),
       'createdBy': await UserL().getCurrentUserName(),
+      'status': 'Active'
     });
   }
 
@@ -31,6 +32,24 @@ class Examiner {
     } catch (e) {
       print("Error fetching isLogin: $e");
       return null;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getAllExaminers() async {
+    try {
+      final QuerySnapshot snapshot = await FirebaseFirestore.instance
+          .collection('examiners')
+          .orderBy('createdAt', descending: true)
+          .get();
+
+      return snapshot.docs.map((doc) {
+        Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+        data['id'] = doc.id; // Add document ID to the data
+        return data;
+      }).toList();
+    } catch (e) {
+      print("Error fetching examiners: $e");
+      return [];
     }
   }
 }

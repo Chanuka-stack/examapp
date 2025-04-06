@@ -1,5 +1,8 @@
+import 'package:app1/data/division.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'create_division.dart';
 
 class Divisions extends StatefulWidget {
@@ -11,6 +14,16 @@ class Divisions extends StatefulWidget {
 
 class _DivisionsState extends State<Divisions> {
   int? value = 0;
+
+  String formatDateFromTimestamp(dynamic timestamp) {
+    if (timestamp == null) return 'N/A';
+    if (timestamp is Timestamp) {
+      DateTime dateTime = timestamp.toDate();
+      return DateFormat('yyyy/MM/dd')
+          .format(dateTime); // Using intl's DateFormat
+    }
+    return timestamp.toString();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -87,55 +100,53 @@ class _DivisionsState extends State<Divisions> {
 
   // Function to Filter Content Based on Selection
   Widget getSelectedContent() {
-    List<Map<String, dynamic>> allDivisions = [
-      {
-        "name": "Faculty of Art",
-        "code": "FOA",
-        "status": "Active",
-        "subjects": ["Economics", "Accounting", "Marketing", "Finance"],
-        "createdBy": "Mr. John Doe",
-        "createdDate": "01/04/2025",
-        "image":
-            "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR_nP6vpfnQtFiikQCZtOXHfJvBrnDy5ddSyQ&s", // Placeholder image
-      },
-      {
-        "name": "Faculty of Management",
-        "code": "FOM",
-        "status": "Active",
-        "subjects": ["Business", "Finance", "HR", "Management"],
-        "createdBy": "Ms. Jane Smith",
-        "createdDate": "05/04/2025",
-        "image":
-            "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR_nP6vpfnQtFiikQCZtOXHfJvBrnDy5ddSyQ&s",
-      },
-    ];
+    // This needs to be a FutureBuilder since you're dealing with asynchronous data
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: Division().getAllDivisions(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
-    List<Map<String, dynamic>> activeDivisions =
-        allDivisions.where((div) => div["status"] == "Active").toList();
-    List<Map<String, dynamic>> deletedDivisions = [];
+        if (snapshot.hasError) {
+          return Center(child: Text('Error: ${snapshot.error}'));
+        }
 
-    List<Map<String, dynamic>> displayList;
-    switch (value) {
-      case 1:
-        displayList = activeDivisions;
-        break;
-      case 2:
-        displayList = deletedDivisions;
-        break;
-      default:
-        displayList = allDivisions;
-    }
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return const Center(child: Text('No divisions found'));
+        }
 
-    return ListView.builder(
-      itemCount: displayList.length,
-      itemBuilder: (context, index) {
-        var division = displayList[index];
-        return buildDivisionCard(division);
+        // Now we have the data and can work with it
+        List<Map<String, dynamic>> allDivisions = snapshot.data!;
+        List<Map<String, dynamic>> activeDivisions =
+            allDivisions.where((div) => div["status"] == "Active").toList();
+        List<Map<String, dynamic>> deletedDivisions =
+            allDivisions.where((div) => div["status"] != "Active").toList();
+
+        List<Map<String, dynamic>> displayList;
+        switch (value) {
+          case 1:
+            displayList = activeDivisions;
+            break;
+          case 2:
+            displayList = deletedDivisions;
+            break;
+          default:
+            displayList = allDivisions;
+        }
+
+        return ListView.builder(
+          itemCount: displayList.length,
+          itemBuilder: (context, index) {
+            var division = displayList[index];
+            return buildDivisionCard(division);
+          },
+        );
       },
     );
   }
 
-  // Division Card Widget
+// Division Card Widget
   Widget buildDivisionCard(Map<String, dynamic> division) {
     return Card(
       elevation: 3,
@@ -145,10 +156,18 @@ class _DivisionsState extends State<Divisions> {
         leading: ClipRRect(
           borderRadius: BorderRadius.circular(8),
           child: Image.network(
-            division["image"],
+            division["imageUrl"],
             height: 50,
             width: 50,
             fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) {
+              return Container(
+                height: 50,
+                width: 50,
+                color: Colors.grey,
+                child: const Icon(Icons.broken_image),
+              );
+            },
           ),
         ),
         title: Column(
@@ -177,9 +196,9 @@ class _DivisionsState extends State<Divisions> {
                     style: TextStyle(fontWeight: FontWeight.bold)),
                 Wrap(
                   spacing: 8,
-                  children: division["subjects"]
+                  children: (division["subjects"] as List<dynamic>)
                       .map<Widget>((subject) => Chip(
-                            label: Text(subject),
+                            label: Text(subject.toString()),
                           ))
                       .toList(),
                 ),
@@ -191,7 +210,8 @@ class _DivisionsState extends State<Divisions> {
                   children: [
                     Text("Created by\n${division["createdBy"]}",
                         style: const TextStyle(color: Colors.black54)),
-                    Text("Created Date\n${division["createdDate"]}",
+                    Text(
+                        "Created Date\n${formatDateFromTimestamp(division["createdAt"])}",
                         style: const TextStyle(color: Colors.black54)),
                   ],
                 ),
