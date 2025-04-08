@@ -245,7 +245,16 @@ class _DivisionsState extends State<Divisions> {
                     const SizedBox(width: 10),
                     Expanded(
                       child: OutlinedButton(
-                        onPressed: () {},
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => DivisionFormScreen(
+                                divisionData: division,
+                              ),
+                            ),
+                          );
+                        },
                         child: const Text("Edit"),
                       ),
                     ),

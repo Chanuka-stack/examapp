@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import '../../services/image_picker_service.dart'; // Update with your actual import path
 
 class DivisionFormScreen extends StatefulWidget {
+  final Map<String, dynamic>? divisionData;
+  const DivisionFormScreen({Key? key, this.divisionData}) : super(key: key);
   @override
   _DivisionFormScreenState createState() => _DivisionFormScreenState();
 }
@@ -15,12 +17,37 @@ class _DivisionFormScreenState extends State<DivisionFormScreen> {
   File? _selectedImage;
   final ImagePickerService _imagePickerService = ImagePickerService();
   Division division = Division();
+  bool isEditing = false;
+  String? divisionId;
 
   @override
   void initState() {
     super.initState();
     // Check for lost data when app restarts
     _checkForLostData();
+    _initializeFormWithData();
+  }
+
+  void _initializeFormWithData() {
+    if (widget.divisionData != null) {
+      isEditing = true;
+      divisionId = widget.divisionData!['id'];
+      _nameController.text = widget.divisionData!['name'] ?? '';
+      _codeController.text = widget.divisionData!['code'] ?? '';
+
+      // Convert dynamic list to string list
+      if (widget.divisionData!['subjects'] is List) {
+        subjects = (widget.divisionData!['subjects'] as List)
+            .map((item) => item.toString())
+            .toList();
+      }
+
+      // Store existing image URL if available
+      //_existingImageUrl = widget.divisionData!['imageUrl'];
+    } else {
+      // Set default subjects for new division
+      subjects = ["Maths", "Economics"];
+    }
   }
 
   // Recover lost data if app was killed while picking
@@ -184,26 +211,45 @@ class _DivisionFormScreenState extends State<DivisionFormScreen> {
                   child: ElevatedButton(
                     onPressed: () async {
                       try {
-                        // Show loading indicator or disable button while processing
-                        // You could add a loading state here if needed
-
-                        await Division().createDivisionWithoutImage(
+                        if (isEditing) {
+                          // Update existing division
+                          await division.updateDivisionWithoutImage(
+                            divisionId!,
                             _nameController.text,
                             _codeController.text,
                             subjects,
-                            _selectedImage);
+                            //_selectedImage,
+                            //keepExistingImage: _selectedImage == null && _existingImageUrl != null,
+                          );
+
+                          // Success message for update
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text("Division updated successfully"),
+                              backgroundColor: Colors.green,
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        } else {
+                          // Create new division
+                          await division.createDivisionWithoutImage(
+                              _nameController.text,
+                              _codeController.text,
+                              subjects,
+                              _selectedImage);
+
+                          // Success message for creation
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text("Division created successfully"),
+                              backgroundColor: Colors.green,
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        }
 
                         // Navigate back to divisions page
                         Navigator.pop(context);
-
-                        // Show success message after navigation
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text("Division created successfully"),
-                            backgroundColor: Colors.green,
-                            duration: Duration(seconds: 2),
-                          ),
-                        );
                       } catch (e) {
                         // Show error message if creation fails
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -223,7 +269,7 @@ class _DivisionFormScreenState extends State<DivisionFormScreen> {
                         borderRadius: BorderRadius.circular(4),
                       ),
                     ),
-                    child: const Text("Create"),
+                    child: Text(isEditing ? "Update" : "Create"),
                   ),
                 ),
               ),

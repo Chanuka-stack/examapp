@@ -1,5 +1,8 @@
+import 'package:app1/data/exam.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'create_exam2.dart';
 
 class Exam extends StatefulWidget {
@@ -11,6 +14,16 @@ class Exam extends StatefulWidget {
 
 class _ExamState extends State<Exam> {
   int? value = 0;
+
+  String formatDateFromTimestamp(dynamic timestamp) {
+    if (timestamp == null) return 'N/A';
+    if (timestamp is Timestamp) {
+      DateTime dateTime = timestamp.toDate();
+      return DateFormat('yyyy/MM/dd')
+          .format(dateTime); // Using intl's DateFormat
+    }
+    return timestamp.toString();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -88,7 +101,7 @@ class _ExamState extends State<Exam> {
 
   // Function to Filter Content Based on Selection
   Widget getSelectedContent() {
-    List<Map<String, dynamic>> allExam = [
+    /*List<Map<String, dynamic>> allExam = [
       {
         "exam": "Sinhala Part II",
         "date": "01/04/2025",
@@ -122,29 +135,48 @@ class _ExamState extends State<Exam> {
           "HS/2023/005"
         ],
       },
-    ];
+    ];*/
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: ExamFirebaseService().getUpcomingExams(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
-    List<Map<String, dynamic>> activeExam =
-        allExam.where((exm) => exm["status"] == "Active").toList();
-    List<Map<String, dynamic>> deletedExam = [];
+        if (snapshot.hasError) {
+          return Center(child: Text('Error: ${snapshot.error}'));
+        }
 
-    List<Map<String, dynamic>> displayList;
-    switch (value) {
-      case 1:
-        displayList = activeExam;
-        break;
-      case 2:
-        displayList = deletedExam;
-        break;
-      default:
-        displayList = allExam;
-    }
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return const Center(child: Text('No exams found'));
+        }
 
-    return ListView.builder(
-      itemCount: displayList.length,
-      itemBuilder: (context, index) {
-        var examiner = displayList[index];
-        return buildExaminerCard(examiner);
+        // Now we have the data and can work with it
+        List<Map<String, dynamic>> allExams = snapshot.data!;
+        List<Map<String, dynamic>> activeExams =
+            allExams.where((div) => div["status"] == "Active").toList();
+        List<Map<String, dynamic>> deletedExams =
+            allExams.where((div) => div["status"] != "Active").toList();
+
+        List<Map<String, dynamic>> displayList;
+        switch (value) {
+          case 1:
+            displayList = activeExams;
+            break;
+          case 2:
+            displayList = deletedExams;
+            break;
+          default:
+            displayList = allExams;
+        }
+
+        return ListView.builder(
+          itemCount: displayList.length,
+          itemBuilder: (context, index) {
+            var examiner = displayList[index];
+            return buildExaminerCard(examiner);
+          },
+        );
       },
     );
   }
@@ -156,19 +188,21 @@ class _ExamState extends State<Exam> {
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: ExpansionTile(
-        title: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text("Exam", style: const TextStyle(color: Colors.black54)),
-                Text(exam["exam"])
+                Text(exam["name"])
               ],
             ),
             Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text("Date", style: const TextStyle(color: Colors.black54)),
-                Text(exam["date"])
+                Text(formatDateFromTimestamp(exam["examDate"]))
               ],
             )
           ],
@@ -186,7 +220,7 @@ class _ExamState extends State<Exam> {
                       children: [
                         Text("Time",
                             style: const TextStyle(color: Colors.black54)),
-                        Text(exam["time"])
+                        Text('${exam['startTime']} - ${exam['endTime']}')
                       ],
                     ),
                     SizedBox(
@@ -241,7 +275,7 @@ class _ExamState extends State<Exam> {
                     style: TextStyle(fontWeight: FontWeight.bold)),
                 Wrap(
                   spacing: 8,
-                  children: exam["students"]
+                  children: exam["studentIds"]
                       .map<Widget>((student) => Chip(
                             label: Text(student),
                           ))
@@ -267,7 +301,7 @@ class _ExamState extends State<Exam> {
                       children: [
                         Text("Created Date",
                             style: const TextStyle(color: Colors.black54)),
-                        Text(exam["createdDate"])
+                        Text(formatDateFromTimestamp(exam["createdAt"]))
                       ],
                     )
                   ],

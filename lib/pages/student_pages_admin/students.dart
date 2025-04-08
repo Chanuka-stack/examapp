@@ -1,5 +1,8 @@
+import 'package:app1/data/student.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'create_student.dart';
 
 class Students extends StatefulWidget {
@@ -11,6 +14,16 @@ class Students extends StatefulWidget {
 
 class _StudentsState extends State<Students> {
   int? value = 0;
+
+  String formatDateFromTimestamp(dynamic timestamp) {
+    if (timestamp == null) return 'N/A';
+    if (timestamp is Timestamp) {
+      DateTime dateTime = timestamp.toDate();
+      return DateFormat('yyyy/MM/dd')
+          .format(dateTime); // Using intl's DateFormat
+    }
+    return timestamp.toString();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -87,7 +100,7 @@ class _StudentsState extends State<Students> {
 
   // Function to Filter Content Based on Selection
   Widget getSelectedContent() {
-    List<Map<String, dynamic>> allStudents = [
+    /*List<Map<String, dynamic>> allStudents = [
       {
         "name": "Adam Gilichrist",
         "id": "EX000123",
@@ -109,29 +122,49 @@ class _StudentsState extends State<Students> {
         "createdBy": "Ms. Jane Smith",
         "createdDate": "05/04/2025",
       },
-    ];
+    ];*/
 
-    List<Map<String, dynamic>> activeStudents =
-        allStudents.where((div) => div["status"] == "Active").toList();
-    List<Map<String, dynamic>> deletedStudents = [];
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: Student().getAllStudents(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
-    List<Map<String, dynamic>> displayList;
-    switch (value) {
-      case 1:
-        displayList = activeStudents;
-        break;
-      case 2:
-        displayList = deletedStudents;
-        break;
-      default:
-        displayList = allStudents;
-    }
+        if (snapshot.hasError) {
+          return Center(child: Text('Error: ${snapshot.error}'));
+        }
 
-    return ListView.builder(
-      itemCount: displayList.length,
-      itemBuilder: (context, index) {
-        var Student = displayList[index];
-        return buildStudentCard(Student);
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return const Center(child: Text('No students found'));
+        }
+
+        // Now we have the data and can work with it
+        List<Map<String, dynamic>> allStudents = snapshot.data!;
+        List<Map<String, dynamic>> activeStudents =
+            allStudents.where((div) => div["status"] == "Active").toList();
+        List<Map<String, dynamic>> deletedStudents =
+            allStudents.where((div) => div["status"] != "Active").toList();
+
+        List<Map<String, dynamic>> displayList;
+        switch (value) {
+          case 1:
+            displayList = activeStudents;
+            break;
+          case 2:
+            displayList = deletedStudents;
+            break;
+          default:
+            displayList = allStudents;
+        }
+
+        return ListView.builder(
+          itemCount: displayList.length,
+          itemBuilder: (context, index) {
+            var Student = displayList[index];
+            return buildStudentCard(Student);
+          },
+        );
       },
     );
   }
@@ -150,7 +183,7 @@ class _StudentsState extends State<Students> {
               children: [
                 Text("Student (ID))",
                     style: const TextStyle(color: Colors.black54)),
-                Text("\n${Student["name"]}\n(${Student["id"]})")
+                Text("\n${Student["name"]}\n(${Student["studentId"]})")
               ],
             ),
             Column(
@@ -185,7 +218,7 @@ class _StudentsState extends State<Students> {
                       children: [
                         Text("Contact Number",
                             style: const TextStyle(color: Colors.black54)),
-                        Text(Student["mobile"])
+                        Text(Student["contactNumber"])
                       ],
                     )
                   ],
@@ -209,7 +242,7 @@ class _StudentsState extends State<Students> {
                       children: [
                         Text("Created Date",
                             style: const TextStyle(color: Colors.black54)),
-                        Text(Student["createdDate"])
+                        Text(formatDateFromTimestamp(Student["createdAt"]))
                       ],
                     )
                   ],

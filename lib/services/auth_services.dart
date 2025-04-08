@@ -207,7 +207,7 @@ class AuthService {
       // Create examiner document in Firestore under "examiners" collection
       Student student = Student();
       await student.createStudent(
-          uid, email, name, division, studentId, contactNumber);
+          uid, email, name, studentId, division, contactNumber);
 
       await Future.delayed(const Duration(seconds: 2));
 

@@ -19,7 +19,8 @@ class Student {
       'contactNumber': contactNumber,
       'createdAt': FieldValue.serverTimestamp(),
       'createdBy': await UserL().getCurrentUserName(),
-      'isLogin': false, // Track if student has logged in
+      'isLogin': false,
+      'status': 'Active' // Track if student has logged in
     });
   }
 
@@ -117,6 +118,24 @@ class Student {
     } catch (e) {
       print("Error updating login status: $e");
       throw e;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getAllStudents() async {
+    try {
+      final QuerySnapshot snapshot = await FirebaseFirestore.instance
+          .collection('students')
+          .orderBy('createdAt', descending: true)
+          .get();
+
+      return snapshot.docs.map((doc) {
+        Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+        data['id'] = doc.id; // Add document ID to the data
+        return data;
+      }).toList();
+    } catch (e) {
+      print("Error fetching students: $e");
+      return [];
     }
   }
 }

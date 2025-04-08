@@ -147,6 +147,37 @@ class Division {
     }
   }
 
+  Future<void> updateDivisionWithoutImage(
+    String divisionId,
+    String name,
+    String code,
+    List<String> subjects,
+  ) async {
+    try {
+      final docRef =
+          FirebaseFirestore.instance.collection('divisions').doc(divisionId);
+      final DocumentSnapshot doc = await docRef.get();
+
+      if (!doc.exists) {
+        throw Exception("Division not found");
+      }
+
+      final Map<String, dynamic> updateData = {
+        'name': name,
+        'code': code,
+        'subjects': subjects,
+        'updatedAt': FieldValue.serverTimestamp(),
+        'updatedBy': await UserL().getCurrentUserName(),
+      };
+
+      // Update document in Firestore
+      await docRef.update(updateData);
+    } catch (e) {
+      print("Error updating division: $e");
+      throw e;
+    }
+  }
+
   // Delete a division
   Future<void> deleteDivision(String divisionId) async {
     try {
@@ -217,6 +248,28 @@ class Division {
     } catch (e) {
       print("Error fetching division: $e");
       return null;
+    }
+  }
+
+  Future<void> markDivisionAsDeleted(String divisionId) async {
+    try {
+      final docRef =
+          FirebaseFirestore.instance.collection('divisions').doc(divisionId);
+      final DocumentSnapshot doc = await docRef.get();
+
+      if (!doc.exists) {
+        throw Exception("Division not found");
+      }
+
+      // Update the status to 'Delete' instead of removing the document
+      await docRef.update({
+        'status': 'Delete',
+        'deletedAt': FieldValue.serverTimestamp(),
+        'deletedBy': await UserL().getCurrentUserName(),
+      });
+    } catch (e) {
+      print("Error marking division as deleted: $e");
+      throw e; // Rethrow to handle in the UI
     }
   }
 }
