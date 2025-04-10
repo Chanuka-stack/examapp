@@ -57,6 +57,7 @@ class _StudentHomeState extends State<StudentHome> {
   }
 
   void _startListening() async {
+    if (!mounted) return;
     await _speechService.startListening(onResult: _processResult);
     setState(() {});
 
@@ -91,9 +92,9 @@ class _StudentHomeState extends State<StudentHome> {
     DateTime.now().year,
     DateTime.now().month,
     DateTime.now().day,
-    11,
-    36,
-    00,
+    20,
+    22,
+    30,
   );
   final List<Map<String, dynamic>> upcomingExams = [
     {
@@ -159,7 +160,7 @@ class _StudentHomeState extends State<StudentHome> {
         leading: Padding(
           padding: EdgeInsets.only(left: 10),
           child: Image.network(
-            "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/30e6638c-66dc-4f26-9c63-a18063356e7e",
+            "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTEDHJcTUiAddWFZ53pMbbKxp9hIZW4hAAnHg&s",
             fit: BoxFit.fitWidth,
           ),
         ),
@@ -405,10 +406,16 @@ class _StudentHomeState extends State<StudentHome> {
                           fontFamily: 'sans-serif',
                         ),
                         onEnd: () {
-                          Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (context) => Qesutions()));
+                          if (mounted) {
+                            // Delay the navigation slightly to ensure the page is loaded
+                            Future.delayed(Duration(milliseconds: 100), () {
+                              Navigator.pushReplacement(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (context) => Qesutions()),
+                              );
+                            });
+                          }
                         },
                       ),
                     ),

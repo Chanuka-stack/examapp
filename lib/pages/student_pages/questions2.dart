@@ -1,11 +1,11 @@
 import 'package:app1/services/text_to_speech_service.dart';
-
 import 'package:speech_to_text/speech_recognition_result.dart';
 import '../../services/voice_recongintion_service.dart';
 import 'package:flutter/material.dart';
 import '../components/audio_button.dart';
 import '../../services/timer.dart';
 import 'package:flutter_timer_countdown/flutter_timer_countdown.dart';
+import 'dart:async'; // Import for timer management
 
 class Qesutions extends StatefulWidget {
   const Qesutions({super.key});
@@ -16,18 +16,24 @@ class Qesutions extends StatefulWidget {
 
 enum ExamState { ready, inProgress, ended }
 
-class _QesutionsState extends State<Qesutions> {
+class _QesutionsState extends State<Qesutions> with WidgetsBindingObserver {
   final TextToSpeechHelper ttsHelper = TextToSpeechHelper();
   final SpeechRecognitionService _speechService = SpeechRecognitionService();
   bool _isInitialized = false;
   String _lastWords = '';
+
+  // List to keep track of all active timers
+  final List<Timer> _timers = [];
+
+  // Flag to track if the widget is still mounted
+  bool _isMounted = true;
 
   /// Example: Exam is from 10:00 AM to 12:00 PM
   final DateTime startTime = DateTime(
     DateTime.now().year,
     DateTime.now().month,
     DateTime.now().day,
-    6,
+    20,
     22,
     30,
   );
@@ -35,7 +41,7 @@ class _QesutionsState extends State<Qesutions> {
     DateTime.now().year,
     DateTime.now().month,
     DateTime.now().day,
-    11,
+    23,
     00,
     0,
   );
@@ -49,10 +55,33 @@ class _QesutionsState extends State<Qesutions> {
   // Question list without formal data models
   late List<Map<String, dynamic>> sections;
 
+  // Safe setState that checks if the widget is still mounted
+  void _safeSetState(VoidCallback fn) {
+    if (_isMounted) {
+      setState(fn);
+    }
+  }
+
+  // Create a timer that will be automatically cancelled on dispose
+  Timer _createTimer(Duration duration, Function() callback) {
+    final timer = Timer(duration, () {
+      if (_isMounted) {
+        callback();
+      }
+    });
+    _timers.add(timer);
+    return timer;
+  }
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _initializeData();
     _initSpeechAndStart();
+  }
+
+  void _initializeData() {
     // Initialize question data
     if (DateTime.now().isBefore(startTime)) {
       _currentState = ExamState.ready;
@@ -104,65 +133,101 @@ class _QesutionsState extends State<Qesutions> {
   }
 
   void _initSpeechAndStart() async {
-    await _speechService.initSpeech();
-    setState(() {
-      _isInitialized = true;
-    });
-    // Start listening automatically
-    _startListening();
+    try {
+      await _speechService.initSpeech();
+      if (!_isMounted) return;
+
+      _safeSetState(() {
+        _isInitialized = true;
+      });
+
+      // Start listening automatically
+      _startListening();
+    } catch (e) {
+      print("Error initializing speech: $e");
+    }
   }
 
   void _startListening() async {
-    await _speechService.startListening(onResult: _processResult);
-    //setState(() {});
+    if (!_isMounted) return;
 
-    // Set up a timer to check if listening has stopped
-    Future.delayed(Duration(seconds: 5), () {
-      if (mounted) {
-        _speechService.checkAndRestartListening(_startListening);
-      }
-    });
+    try {
+      await _speechService.startListening(onResult: (result) {
+        if (_isMounted) {
+          _processResult(result);
+        }
+      });
+
+      // Set up a timer to check if listening has stopped
+      _createTimer(Duration(seconds: 5), () {
+        if (_isMounted) {
+          _speechService.checkAndRestartListening(() {
+            if (_isMounted) {
+              _startListening();
+            }
+          });
+        }
+      });
+    } catch (e) {
+      print("Error starting listening: $e");
+    }
   }
 
   void _processResult(SpeechRecognitionResult result) {
-    setState(() {
+    if (!_isMounted) return;
+
+    _safeSetState(() {
       _lastWords = result.recognizedWords;
 
       if (_currentState == ExamState.inProgress) {
         if (_lastWords.toLowerCase().contains('i am ready for exam')) {
-          //_speechService.stopListening();
           _goToFirstQuestion();
         }
-      }
-      if (_currentState == ExamState.inProgress) {
         if (_lastWords.toLowerCase().contains('next question')) {
-          //_speechService.stopListening();
           _nextQuestion();
         }
         if (_lastWords.toLowerCase().contains('previous question')) {
-          //_speechService.stopListening();
           _previousQuestion();
-        }
-      }
-      if (_currentState == ExamState.ended) {
-        if (_lastWords.toLowerCase().contains('end exam')) {
-          //_speechService.stopListening();
-        }
-        if (_lastWords.toLowerCase().contains('previous question')) {
-          //_speechService.stopListening();
         }
       }
     });
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Handle app lifecycle changes
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      // App is in background or being closed, clean up resources
+      _cleanupResources();
+    }
+  }
+
+  void _cleanupResources() {
+    // Stop all ongoing operations
+    _speechService.stopListening();
+    ttsHelper.stop();
+
+    // Cancel all timers
+    for (var timer in _timers) {
+      timer.cancel();
+    }
+    _timers.clear();
+  }
+
+  @override
   void dispose() {
+    _isMounted = false;
+    _cleanupResources();
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
   void _nextQuestion() {
+    if (!_isMounted) return;
+
     ttsHelper.stop();
-    setState(() {
+    _safeSetState(() {
       final currentQuestion =
           sections[_currentSectionIndex]['questions'][_currentQuestionIndex];
       if (_currentSubQuestionIndex <
@@ -191,15 +256,15 @@ class _QesutionsState extends State<Qesutions> {
   }
 
   void _previousQuestion() {
+    if (!_isMounted) return;
+
     ttsHelper.stop();
-    setState(() {
+    _safeSetState(() {
       if (_currentSubQuestionIndex == 0 &&
           _currentQuestionIndex == 0 &&
           _currentSectionIndex == 0) {
-        setState(() {
-          _currentSubQuestionIndex = -1;
-          _currentQuestionIndex = -1;
-        });
+        _currentSubQuestionIndex = -1;
+        _currentQuestionIndex = -1;
       }
       if (_currentSubQuestionIndex > 0) {
         // Go to previous subquestion
@@ -221,19 +286,16 @@ class _QesutionsState extends State<Qesutions> {
                 [_currentQuestionIndex];
             _currentSubQuestionIndex = prevQuestion['subQuestions'].length - 1;
           }
-          // Added else condition to handle edge case when at first question
-          else {
-            // Already at first question, do nothing or optionally show a message
-            // You could add: ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Already at first question')));
-          }
         }
       }
     });
   }
 
   void _goToFinalQuestion() {
+    if (!_isMounted) return;
+
     ttsHelper.stop();
-    setState(() {
+    _safeSetState(() {
       final lastSectionIndex = sections.length - 1;
       final lastQuestionIndex =
           sections[lastSectionIndex]['questions'].length - 1;
@@ -249,8 +311,10 @@ class _QesutionsState extends State<Qesutions> {
   }
 
   void _goToFirstQuestion() {
+    if (!_isMounted) return;
+
     ttsHelper.stop();
-    setState(() {
+    _safeSetState(() {
       _currentSectionIndex = 0;
       _currentQuestionIndex = 0;
       _currentSubQuestionIndex = 0;
@@ -258,51 +322,58 @@ class _QesutionsState extends State<Qesutions> {
   }
 
   void _startExam() {
-    setState(() {
+    if (!_isMounted) return;
+
+    _safeSetState(() {
       _currentState = ExamState.inProgress;
     });
   }
 
   void _endExam() {
-    setState(() {
+    if (!_isMounted) return;
+
+    _safeSetState(() {
       _currentState = ExamState.ended;
     });
   }
 
+  // Safe wrapper for text-to-speech operations
+  Future<void> _safeSpeakText(String text, {double rate = 0.5}) async {
+    if (!_isMounted) return;
+
+    try {
+      await ttsHelper.initTTS(
+          language: "en-US", rate: rate, pitch: 1.0, volume: 1.0);
+      if (!_isMounted) return;
+
+      await ttsHelper.speak(text);
+    } catch (e) {
+      print("Error in text-to-speech: $e");
+    }
+  }
+
   void _speakSection(String text) async {
-    await ttsHelper.initTTS(
-        language: "en-US", rate: 0.5, pitch: 1.0, volume: 1.0);
-    await ttsHelper.speak(text);
+    await _safeSpeakText(text);
   }
 
   void _speakR(String text) async {
-    await ttsHelper.initTTS(
-        language: "en-US", rate: 0.5, pitch: 1.0, volume: 1.0);
-    await ttsHelper.speak(text);
+    await _safeSpeakText(text);
   }
 
   void _speakMainQuestion(String text) async {
-    await ttsHelper.initTTS(
-        language: "en-US", rate: 0.5, pitch: 1.0, volume: 1.0);
-    await ttsHelper.speak(text);
+    await _safeSpeakText(text);
   }
 
   void _speakSubQuestion(String text) async {
-    await ttsHelper.initTTS(
-        language: "en-US", rate: 0.5, pitch: 1.0, volume: 1.0);
-    await ttsHelper.speak(text);
+    await _safeSpeakText(text);
   }
 
   void _speakIntro(String text) async {
-    await ttsHelper.initTTS(
-        language: "en-US", rate: 0.5, pitch: 1.0, volume: 1.0);
-    await ttsHelper.speak(text);
+    await _safeSpeakText(text);
   }
 
   void _speakOutro(String text) async {
-    await ttsHelper.initTTS(
-        language: "en-US", rate: 0.5, pitch: 1.0, volume: 1.0);
-    await ttsHelper.speak(text);
+    await _safeSpeakText(text);
   }
 
   @override
@@ -336,16 +407,23 @@ class _QesutionsState extends State<Qesutions> {
   }
 
   Widget _buildReadyScreen() {
-    /*WidgetsBinding.instance.addPostFrameCallback((_) {
-      _speakR('STAY READY');
-      _speakR('SINHALA LITERATURE PART II - [YIS2-SL-9282]');
-      _speakR('Your exam will start in ');
-    });*/
-    Future.microtask(() {
-      _speakR('STAY READY');
-      _speakR('SINHALA LITERATURE PART II - [YIS2-SL-9282]');
-      _speakR('Your exam will start in ');
+    // Use a safer approach with a single post-frame callback
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_isMounted) {
+        _safeSpeakText('STAY READY');
+        _createTimer(Duration(milliseconds: 2000), () {
+          if (_isMounted) {
+            _safeSpeakText('SINHALA LITERATURE PART II - [YIS2-SL-9282]');
+            _createTimer(Duration(milliseconds: 3000), () {
+              if (_isMounted) {
+                _safeSpeakText('Your exam will start in');
+              }
+            });
+          }
+        });
+      }
     });
+
     return Container(
       padding: EdgeInsets.all(16),
       child: Column(
@@ -407,13 +485,12 @@ class _QesutionsState extends State<Qesutions> {
                   child: TimerCountdown(
                     format: CountDownTimerFormat.hoursMinutesSeconds,
                     timeTextStyle: TextStyle(
-                      fontSize: 16, // Adjust size
+                      fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      color: Colors.white, // Change text color
+                      color: Colors.white,
                     ),
                     descriptionTextStyle: TextStyle(
-                      // Hides labels by setting empty text
-                      fontSize: 0, // Makes labels disappear
+                      fontSize: 0,
                       color: Colors.transparent,
                       fontFamily: 'sans-serif',
                     ),
@@ -424,7 +501,9 @@ class _QesutionsState extends State<Qesutions> {
                     ),
                     endTime: startTime,
                     onEnd: () {
-                      _startExam();
+                      if (_isMounted) {
+                        _startExam();
+                      }
                     },
                   ),
                 ),
@@ -432,31 +511,21 @@ class _QesutionsState extends State<Qesutions> {
             ),
           ),
           Spacer(),
-          /*Center(
-            child: ElevatedButton(
-              onPressed: _startExam,
-              style: ElevatedButton.styleFrom(
-                padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-              ),
-              child: Text('Start Exam', style: TextStyle(fontSize: 18)),
-            ),
-          ),*/
         ],
       ),
     );
   }
 
   Widget _buildSectionIntroScreen() {
-    /*WidgetsBinding.instance.addPostFrameCallback((_) {
-      final String introText =
-          'This exam has two sections: Section 1 requires answering all questions, while in Section 2, you may choose any two questions out of five. The total duration is 2 hours.';
-      _speakIntro(introText);
-    });*/
-    Future.microtask(() {
-      final String introText =
-          'This exam has two sections: Section 1 requires answering all questions, while in Section 2, you may choose any two questions out of five. The total duration is 2 hours.';
-      _speakIntro(introText);
+    // Use a safer approach with a single post-frame callback
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_isMounted) {
+        final String introText =
+            'This exam has two sections: Section 1 requires answering all questions, while in Section 2, you may choose any two questions out of five. The total duration is 2 hours.';
+        _safeSpeakText(introText);
+      }
     });
+
     return Container(
       padding: EdgeInsets.all(16),
       child: Column(
@@ -504,13 +573,12 @@ class _QesutionsState extends State<Qesutions> {
               child: TimerCountdown(
                 format: CountDownTimerFormat.hoursMinutesSeconds,
                 timeTextStyle: TextStyle(
-                  fontSize: 16, // Adjust size
+                  fontSize: 16,
                   fontWeight: FontWeight.bold,
-                  color: Colors.white, // Change text color
+                  color: Colors.white,
                 ),
                 descriptionTextStyle: TextStyle(
-                  // Hides labels by setting empty text
-                  fontSize: 0, // Makes labels disappear
+                  fontSize: 0,
                   color: Colors.transparent,
                   fontFamily: 'sans-serif',
                 ),
@@ -521,7 +589,9 @@ class _QesutionsState extends State<Qesutions> {
                 ),
                 endTime: endTime,
                 onEnd: () {
-                  _endExam();
+                  if (_isMounted) {
+                    _endExam();
+                  }
                 },
               ),
             ),
@@ -582,18 +652,13 @@ class _QesutionsState extends State<Qesutions> {
               fontFamily: 'sans-serif',
             ),
           ),
-          //Spacer(),
           SizedBox(height: 48),
           Center(
             child: ElevatedButton(
               onPressed: () {
-                setState(() {
-                  // Go to first actual question (not just the section intro)
-                  /*_currentSubQuestionIndex = 0;
-                  _currentQuestionIndex = 0;
-                  _nextQuestion();*/
+                if (_isMounted) {
                   _goToFirstQuestion();
-                });
+                }
               },
               style: ElevatedButton.styleFrom(
                 shape: const CircleBorder(),
@@ -620,17 +685,23 @@ class _QesutionsState extends State<Qesutions> {
         sections[_currentSectionIndex]['questions'][_currentQuestionIndex];
     final subQuestion = question['subQuestions'][_currentSubQuestionIndex];
 
-    Future.microtask(() {
-      // First speak the main question if this is the first subquestion
-      if (_currentSubQuestionIndex == 0) {
-        _speakMainQuestion(question['title']);
-      }
+    // Use a safer approach with a single post-frame callback
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_isMounted) {
+        // First speak the main question if this is the first subquestion
+        if (_currentSubQuestionIndex == 0) {
+          _safeSpeakText(question['title']);
 
-      // Then speak the subquestion after a short delay
-      Future.delayed(
-          Duration(milliseconds: _currentSubQuestionIndex == 0 ? 2000 : 0), () {
-        _speakSubQuestion(subQuestion['text']);
-      });
+          // Then speak the subquestion after a short delay
+          _createTimer(Duration(milliseconds: 2000), () {
+            if (_isMounted) {
+              _safeSpeakText(subQuestion['text']);
+            }
+          });
+        } else {
+          _safeSpeakText(subQuestion['text']);
+        }
+      }
     });
 
     return Container(
@@ -686,13 +757,12 @@ class _QesutionsState extends State<Qesutions> {
               child: TimerCountdown(
                 format: CountDownTimerFormat.hoursMinutesSeconds,
                 timeTextStyle: TextStyle(
-                  fontSize: 16, // Adjust size
+                  fontSize: 16,
                   fontWeight: FontWeight.bold,
-                  color: Colors.white, // Change text color
+                  color: Colors.white,
                 ),
                 descriptionTextStyle: TextStyle(
-                  // Hides labels by setting empty text
-                  fontSize: 0, // Makes labels disappear
+                  fontSize: 0,
                   color: Colors.transparent,
                   fontFamily: 'sans-serif',
                 ),
@@ -703,7 +773,9 @@ class _QesutionsState extends State<Qesutions> {
                 ),
                 endTime: endTime,
                 onEnd: () {
-                  _endExam;
+                  if (_isMounted) {
+                    _endExam();
+                  }
                 },
               ),
             ),
@@ -761,7 +833,7 @@ class _QesutionsState extends State<Qesutions> {
           Center(child: AudioRecordButton()),
           SizedBox(height: 25),
           Container(
-            height: 200, // Adjust height as needed
+            height: 200,
             padding: EdgeInsets.all(8),
             decoration: BoxDecoration(
               border: Border.all(color: Colors.grey),
@@ -774,7 +846,7 @@ class _QesutionsState extends State<Qesutions> {
               ),
               keyboardType: TextInputType.multiline,
               maxLines: null,
-              expands: true, // Fills the container
+              expands: true,
             ),
           )
         ],
@@ -783,11 +855,11 @@ class _QesutionsState extends State<Qesutions> {
   }
 
   Widget _buildExamEndedScreen() {
-    /*WidgetsBinding.instance.addPostFrameCallback((_) {
-      _speakOutro('Your exam has been submitted');
-    });*/
-    Future.microtask(() {
-      _speakOutro('Your exam has been submitted');
+    // Use a safer approach with a single post-frame callback
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_isMounted) {
+        _safeSpeakText('Your exam has been submitted');
+      }
     });
 
     return Container(
@@ -807,10 +879,12 @@ class _QesutionsState extends State<Qesutions> {
                   icon: Icon(Icons.arrow_back),
                   color: Colors.white,
                   onPressed: () {
-                    setState(() {
-                      _currentState = ExamState.inProgress;
-                    });
-                    _goToFinalQuestion();
+                    if (_isMounted) {
+                      _safeSetState(() {
+                        _currentState = ExamState.inProgress;
+                      });
+                      _goToFinalQuestion();
+                    }
                   },
                 ),
               ),
@@ -836,13 +910,12 @@ class _QesutionsState extends State<Qesutions> {
               child: TimerCountdown(
                 format: CountDownTimerFormat.hoursMinutesSeconds,
                 timeTextStyle: TextStyle(
-                  fontSize: 16, // Adjust size
+                  fontSize: 16,
                   fontWeight: FontWeight.bold,
-                  color: Colors.white, // Change text color
+                  color: Colors.white,
                 ),
                 descriptionTextStyle: TextStyle(
-                  // Hides labels by setting empty text
-                  fontSize: 0, // Makes labels disappear
+                  fontSize: 0,
                   color: Colors.transparent,
                   fontFamily: 'sans-serif',
                 ),
