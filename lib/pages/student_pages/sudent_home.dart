@@ -1,3 +1,5 @@
+import 'package:app1/data/exam.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
 import '../../services/voice_recongintion_service.dart';
@@ -15,7 +17,10 @@ class StudentHome extends StatefulWidget {
 class _StudentHomeState extends State<StudentHome> {
   final SpeechRecognitionService _speechService = SpeechRecognitionService();
   final TextToSpeechHelper ttsHelper = TextToSpeechHelper();
+  final ExamFirebaseService _examService = ExamFirebaseService(); // Add this
   bool _isFirstInit = true;
+
+  List<Map<String, dynamic>> upcomingExams = [];
 
   String _lastWords = '';
   bool _isInitialized = false;
@@ -28,11 +33,40 @@ class _StudentHomeState extends State<StudentHome> {
     _initSpeak();
 
     _initSpeechAndStart();
+    _fetchUpcomingExams();
   }
 
   void dispose() {
     _speechService.stopListening();
     super.dispose();
+  }
+
+  Future<void> _fetchUpcomingExams() async {
+    try {
+      // Replace 'currentStudentId' with the actual student ID
+      //final exams = await _examService.getUpcomingExams(studentId: 'currentStudentId');
+      final exams = await _examService.getUpcomingExams();
+      setState(() {
+        upcomingExams = exams.map((exam) {
+          // Convert Firestore data to your expected format
+          return {
+            'name': exam['name'],
+            'date': _formatDate(exam['examDate'] as Timestamp),
+            'startTime': exam['startTime'],
+            'endTime': exam['endTime'],
+            // Add any other fields you need
+          };
+        }).toList();
+      });
+    } catch (e) {
+      print('Error fetching exams: $e');
+      // Optionally show an error to the user
+    }
+  }
+
+  String _formatDate(Timestamp timestamp) {
+    final date = timestamp.toDate();
+    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
   }
 
   void _initSpeak() async {
@@ -96,7 +130,7 @@ class _StudentHomeState extends State<StudentHome> {
     22,
     30,
   );
-  final List<Map<String, dynamic>> upcomingExams = [
+  /*final List<Map<String, dynamic>> upcomingExams = [
     {
       'name': 'SINHALA LITERATURE PART II - [Y152-SL-9292]',
       'date': '2023-11-15',
@@ -116,6 +150,7 @@ class _StudentHomeState extends State<StudentHome> {
       'endTime': '17:00',
     },
   ];
+*/
 
   final List<Map<String, dynamic>> practiceSessions = [
     {
@@ -159,10 +194,10 @@ class _StudentHomeState extends State<StudentHome> {
         elevation: 4,
         leading: Padding(
           padding: EdgeInsets.only(left: 10),
-          child: Image.network(
+          /*child: Image.network(
             "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTEDHJcTUiAddWFZ53pMbbKxp9hIZW4hAAnHg&s",
             fit: BoxFit.fitWidth,
-          ),
+          ),*/
         ),
         title: Row(
           children: [
