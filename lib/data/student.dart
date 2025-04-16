@@ -138,4 +138,20 @@ class Student {
       return [];
     }
   }
+
+  // Get all student IDs
+  Future<List<String>> getAllStudentIds() async {
+    try {
+      final QuerySnapshot snapshot =
+          await FirebaseFirestore.instance.collection('students').get();
+
+      return snapshot.docs
+          .map((doc) => doc.get('studentId') as String)
+          .where((id) => id != null) // Filter out null values
+          .toList();
+    } catch (e) {
+      print("Error fetching student IDs: $e");
+      return [];
+    }
+  }
 }

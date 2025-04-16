@@ -1,6 +1,8 @@
 import 'dart:ffi';
 
+import 'package:app1/data/division.dart';
 import 'package:app1/data/exam.dart';
+import 'package:app1/data/student.dart';
 import 'package:flutter/material.dart';
 
 class ExamFormScreen extends StatefulWidget {
@@ -16,6 +18,7 @@ class _ExamFormScreenState extends State<ExamFormScreen> {
   final TextEditingController _endTimeController = TextEditingController();
   final TextEditingController _sectionCountController = TextEditingController();
   final TextEditingController _totalMarksController = TextEditingController();
+  final TextEditingController _subjectController = TextEditingController();
   final TextEditingController _examGuidelinesController =
       TextEditingController();
 
@@ -26,9 +29,59 @@ class _ExamFormScreenState extends State<ExamFormScreen> {
   String fileContent = '';
   TextEditingController fileContentController = TextEditingController();
 
-  String _selectedDivision = "Faculty of Management (FOM)";
-  String _selectedSubject = "Economics";
+  String _selectedDivision = "";
+  List<String> _selectedStudents = [];
+  //String _selectedSubject = "Economics";
+  List<String> subjects = [];
   List<String> students = [];
+  bool _isLoading = true;
+  List<String> _divisions = [];
+  List<String> _students = [];
+
+  void initState() {
+    super.initState();
+    _fetchDivisions();
+    _fetchStudentIds();
+  }
+
+  Future<void> _fetchDivisions() async {
+    try {
+      setState(() => _isLoading = true);
+      final divisions = await Division().getAllDivisionNames();
+      setState(() {
+        _divisions = divisions.cast<String>();
+        if (_divisions.isNotEmpty) {
+          _selectedDivision = _divisions.first; // Set first division as default
+        }
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to load divisions: $e')),
+      );
+    }
+  }
+
+  Future<void> _fetchStudentIds() async {
+    try {
+      setState(() => _isLoading = true);
+      final students = await Student().getAllStudentIds();
+      setState(() {
+        _students = students.cast<String>();
+        if (_students.isNotEmpty) {
+          _selectedStudents = []; // Set first division as default
+        }
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to load divisions: $e')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -112,26 +165,20 @@ class _ExamFormScreenState extends State<ExamFormScreen> {
           ),
         ),
         _buildTextField("Name", _nameController),
-        _buildDropdown(
-            "Division",
-            [
-              "Faculty of Management (FOM)",
-              "Faculty of Science",
-              "Faculty of Arts"
-            ],
-            _selectedDivision, (value) {
+        _buildDropdown("Division", _divisions, _selectedDivision, (value) {
           setState(() {
             _selectedDivision = value!;
           });
         }),
-        _buildDropdown(
+        /*_buildDropdown(
             "Subject",
             ["Economics", "Mathematics", "History", "Computer Science"],
             _selectedSubject, (value) {
           setState(() {
             _selectedSubject = value!;
           });
-        }),
+        }),*/
+        _buildTextField("Subject", _subjectController),
         _buildDatePicker("Exam Date", _examDateController),
         _buildTimePicker("Start Time", _startTimeController),
         _buildTimePicker("End Time", _endTimeController),
@@ -144,47 +191,7 @@ class _ExamFormScreenState extends State<ExamFormScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Text(
-          'Students',
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: Colors.black87,
-            letterSpacing: 0.5,
-          ),
-        ),
-        Wrap(
-          spacing: 8.0,
-          children: students.map((subject) {
-            return Chip(
-              label: Text(subject),
-              onDeleted: () {
-                setState(() {
-                  students.remove(subject);
-                });
-              },
-            );
-          }).toList(),
-        ),
-        DropdownButtonFormField<String>(
-          decoration: InputDecoration(
-            border: OutlineInputBorder(),
-          ),
-          hint: const Text("Add Students"),
-          onChanged: (value) {
-            if (value != null && !students.contains(value)) {
-              setState(() {
-                students.add(value);
-              });
-            }
-          },
-          items: [
-            "HS/2020/0012",
-            "HS/2020/0045",
-            "HS/2020/0712",
-            "HS/2020/4012"
-          ].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-        ),
+        _buildMultipleSelectionDropdown(_students),
         _buildButtons(),
       ],
     );
@@ -426,19 +433,95 @@ class _ExamFormScreenState extends State<ExamFormScreen> {
       Function(String?) onChanged) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
-      child: DropdownButtonFormField<String>(
-        value: currentValue,
-        decoration: InputDecoration(
-          labelText: label,
-          border: OutlineInputBorder(),
-        ),
-        items: items.map((String value) {
-          return DropdownMenuItem<String>(
-            value: value,
-            child: Text(value),
-          );
-        }).toList(),
-        onChanged: onChanged,
+      child: _isLoading && (label == "Division")
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: TextStyle(fontWeight: FontWeight.bold)),
+                SizedBox(height: 8),
+                LinearProgressIndicator(),
+              ],
+            )
+          : items.isEmpty
+              ? Text("No $label available", style: TextStyle(color: Colors.red))
+              : DropdownButtonFormField<String>(
+                  value: currentValue.isEmpty ? null : currentValue,
+                  decoration: InputDecoration(
+                    labelText: label,
+                    border: OutlineInputBorder(),
+                  ),
+                  hint: Text("Select $label"),
+                  items: items.map((String value) {
+                    return DropdownMenuItem<String>(
+                      value: value,
+                      child: Text(value),
+                    );
+                  }).toList(),
+                  onChanged: onChanged,
+                ),
+    );
+  }
+
+  Widget _buildMultiSelectDropdown(
+    String label,
+    List<String> selectedItems,
+    List<String> allItems,
+    Function(List<String>) onChanged, {
+    bool isLoading = false,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: TextStyle(fontWeight: FontWeight.bold)),
+          SizedBox(height: 8),
+          if (isLoading)
+            LinearProgressIndicator()
+          else if (allItems.isEmpty)
+            Text("No $label available", style: TextStyle(color: Colors.red))
+          else
+            Column(
+              children: [
+                // Display selected items as chips
+                if (selectedItems.isNotEmpty)
+                  Wrap(
+                    spacing: 8.0,
+                    children: selectedItems.map((item) {
+                      return Chip(
+                        label: Text(item),
+                        onDeleted: () {
+                          onChanged(
+                              selectedItems.where((i) => i != item).toList());
+                        },
+                      );
+                    }).toList(),
+                  ),
+
+                // Dropdown for adding new items
+                DropdownButtonFormField<String>(
+                  decoration: InputDecoration(
+                    border: OutlineInputBorder(),
+                    hintText: "Add $label",
+                  ),
+                  value: null, // Always show hint text
+                  items: allItems
+                      .where((item) => !selectedItems.contains(item))
+                      .map((String value) {
+                    return DropdownMenuItem<String>(
+                      value: value,
+                      child: Text(value),
+                    );
+                  }).toList(),
+                  onChanged: (value) {
+                    if (value != null) {
+                      onChanged([...selectedItems, value]);
+                    }
+                  },
+                ),
+              ],
+            ),
+        ],
       ),
     );
   }
@@ -498,6 +581,99 @@ class _ExamFormScreenState extends State<ExamFormScreen> {
     );
   }
 
+  Widget _buildMultipleSelection(List<String> subjects) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: 8.0,
+          children: subjects.map((subject) {
+            return Chip(
+              label: Text(subject),
+              onDeleted: () {
+                setState(() {
+                  subjects.remove(subject);
+                });
+              },
+            );
+          }).toList(),
+        ),
+        TextField(
+          decoration: InputDecoration(
+            labelText: 'Add subjects (comma separated)',
+            border: OutlineInputBorder(),
+          ),
+          onSubmitted: (value) {
+            if (value.trim().isNotEmpty) {
+              // Split by comma and trim each subject
+              final newSubjects = value
+                  .split(',')
+                  .map((s) => s.trim())
+                  .where((s) => s.isNotEmpty)
+                  .toList();
+
+              setState(() {
+                subjects.addAll(newSubjects);
+                // Remove duplicates
+                subjects = subjects.toSet().toList();
+              });
+            }
+          },
+        ),
+        const SizedBox(height: 8),
+      ],
+    );
+  }
+
+  Widget _buildMultipleSelectionDropdown(List<String> allAvailableItems) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text("Add Students *",
+            style: TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+
+        // Display selected students as chips
+        if (_selectedStudents.isNotEmpty)
+          Wrap(
+            spacing: 8.0,
+            children: _selectedStudents.map((student) {
+              return Chip(
+                label: Text(student),
+                onDeleted: () {
+                  setState(() {
+                    _selectedStudents.remove(student);
+                  });
+                },
+              );
+            }).toList(),
+          ),
+
+        // Dropdown for adding students (shows ALL available items)
+        DropdownButtonFormField<String>(
+          decoration: const InputDecoration(
+            border: OutlineInputBorder(),
+            hintText: "Add Students",
+          ),
+          value: null, // Always reset after selection
+          items: allAvailableItems.map((student) {
+            return DropdownMenuItem(
+              value: student,
+              child: Text(student),
+            );
+          }).toList(),
+          onChanged: (String? newValue) {
+            if (newValue != null) {
+              setState(() {
+                _selectedStudents.add(newValue);
+              });
+            }
+          },
+        ),
+      ],
+    );
+  }
+
   Widget _buildButtons() {
     return Column(
       children: [
@@ -532,6 +708,7 @@ class _ExamFormScreenState extends State<ExamFormScreen> {
               String examDate = _examDateController.text;
               String startTime = _startTimeController.text;
               String endTime = _endTimeController.text;
+              String subject = _subjectController.text;
               int sectionCount =
                   int.tryParse(_sectionCountController.text) ?? 0;
               int totalMarks = int.tryParse(_totalMarksController.text) ?? 0;
@@ -542,11 +719,11 @@ class _ExamFormScreenState extends State<ExamFormScreen> {
                   .createExam(
                 name: name,
                 division: _selectedDivision,
-                subject: _selectedSubject,
+                subject: subject,
                 examDate: examDate,
                 startTime: startTime,
                 endTime: endTime,
-                studentIds: students,
+                studentIds: _selectedStudents,
                 sections: sectionCount,
                 totalMarks: totalMarks,
                 guidelines: guidelines,
@@ -583,6 +760,7 @@ class _ExamFormScreenState extends State<ExamFormScreen> {
               String examDate = _examDateController.text;
               String startTime = _startTimeController.text;
               String endTime = _endTimeController.text;
+              String subject = _subjectController.text;
               int sectionCount =
                   int.tryParse(_sectionCountController.text) ?? 0;
               int totalMarks = int.tryParse(_totalMarksController.text) ?? 0;
@@ -592,11 +770,11 @@ class _ExamFormScreenState extends State<ExamFormScreen> {
                   .createExam(
                       name: name,
                       division: _selectedDivision,
-                      subject: _selectedSubject,
+                      subject: subject,
                       examDate: examDate,
                       startTime: startTime,
                       endTime: endTime,
-                      studentIds: students,
+                      studentIds: _selectedStudents,
                       sections: sectionCount,
                       totalMarks: totalMarks,
                       guidelines: guidelines,
