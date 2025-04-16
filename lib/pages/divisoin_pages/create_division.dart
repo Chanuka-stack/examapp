@@ -13,7 +13,7 @@ class DivisionFormScreen extends StatefulWidget {
 class _DivisionFormScreenState extends State<DivisionFormScreen> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _codeController = TextEditingController();
-  List<String> subjects = ["Maths", "Economics"];
+  List<String> subjects = [];
   File? _selectedImage;
   final ImagePickerService _imagePickerService = ImagePickerService();
   Division division = Division();
@@ -108,7 +108,7 @@ class _DivisionFormScreenState extends State<DivisionFormScreen> {
                 ),
               ),
               const SizedBox(height: 10),
-              const Text("Subjects *",
+              /*const Text("Subjects *",
                   style: TextStyle(fontWeight: FontWeight.bold)),
               Wrap(
                 spacing: 8.0,
@@ -122,8 +122,8 @@ class _DivisionFormScreenState extends State<DivisionFormScreen> {
                     },
                   );
                 }).toList(),
-              ),
-              DropdownButtonFormField<String>(
+              ),*/
+              /*DropdownButtonFormField<String>(
                 decoration: InputDecoration(
                   border: OutlineInputBorder(),
                 ),
@@ -138,6 +138,44 @@ class _DivisionFormScreenState extends State<DivisionFormScreen> {
                 items: ["Maths", "Economics", "Marketing", "Science"]
                     .map((e) => DropdownMenuItem(value: e, child: Text(e)))
                     .toList(),
+              ),*/
+              const Text(
+                  "Subjects (Type subject and press enter (comma separated for multiple)) *",
+                  style: TextStyle(fontWeight: FontWeight.bold)),
+              Wrap(
+                spacing: 8.0,
+                children: subjects.map((subject) {
+                  return Chip(
+                    label: Text(subject),
+                    onDeleted: () {
+                      setState(() {
+                        subjects.remove(subject);
+                      });
+                    },
+                  );
+                }).toList(),
+              ),
+              TextField(
+                decoration: InputDecoration(
+                  hintText: "",
+                  border: OutlineInputBorder(),
+                ),
+                onSubmitted: (value) {
+                  if (value.trim().isNotEmpty) {
+                    // Split by comma and trim each subject
+                    final newSubjects = value
+                        .split(',')
+                        .map((s) => s.trim())
+                        .where((s) => s.isNotEmpty)
+                        .toList();
+
+                    setState(() {
+                      subjects.addAll(newSubjects);
+                      // Remove duplicates
+                      subjects = subjects.toSet().toList();
+                    });
+                  }
+                },
               ),
               const SizedBox(height: 10),
               const Text("Image of the Division",

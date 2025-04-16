@@ -272,4 +272,19 @@ class Division {
       throw e; // Rethrow to handle in the UI
     }
   }
+
+  // Add this to your Examiner class or create a new class for Division operations
+  Future<List<String>> getAllDivisionNames() async {
+    try {
+      final QuerySnapshot snapshot = await FirebaseFirestore.instance
+          .collection(
+              'divisions') // Make sure this matches your collection name
+          .get();
+
+      return snapshot.docs.map((doc) => doc['name'] as String).toList();
+    } catch (e) {
+      print("Error fetching divisions: $e");
+      return []; // Return empty list if error occurs
+    }
+  }
 }

@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:app1/data/division.dart';
 import 'package:app1/data/examiner.dart';
 import 'package:app1/services/auth_services.dart';
 import 'package:flutter/material.dart';
@@ -17,6 +18,32 @@ class _ExaminerFormScreenState extends State<ExaminerFormScreen> {
 
   final _formKey = GlobalKey<FormState>();
   String? _selectedDivision;
+  bool _isLoading = true;
+  List<String> _divisions = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchDivisions();
+  }
+
+  Future<void> _fetchDivisions() async {
+    try {
+      // Assuming you have a method to fetch divisions
+      final divisions = await Division().getAllDivisionNames();
+      setState(() {
+        _divisions = divisions.cast<String>();
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to load divisions: $e')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -80,29 +107,34 @@ class _ExaminerFormScreenState extends State<ExaminerFormScreen> {
                   const SizedBox(height: 10),
                   const Text("Division *",
                       style: TextStyle(fontWeight: FontWeight.bold)),
-                  DropdownButtonFormField<String>(
-                    decoration: InputDecoration(
-                      border: OutlineInputBorder(),
-                    ),
-                    hint: const Text("Select a Division"),
-                    value: _selectedDivision,
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please select a division';
-                      }
-                      return null;
-                    },
-                    onChanged: (value) {
-                      if (value != null) {
-                        setState(() {
-                          _selectedDivision = value;
-                        });
-                      }
-                    },
-                    items: ["Arts", "Science", "Medicine", "Management"]
-                        .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-                        .toList(),
-                  ),
+                  _isLoading
+                      ? CircularProgressIndicator() // Show loading indicator
+                      : DropdownButtonFormField<String>(
+                          decoration: InputDecoration(
+                            border: OutlineInputBorder(),
+                          ),
+                          hint: const Text("Select a Division"),
+                          value: _selectedDivision,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please select a division';
+                            }
+                            return null;
+                          },
+                          onChanged: (value) {
+                            if (value != null) {
+                              setState(() {
+                                _selectedDivision = value;
+                              });
+                            }
+                          },
+                          items: _divisions
+                              .map((e) => DropdownMenuItem(
+                                    value: e,
+                                    child: Text(e),
+                                  ))
+                              .toList(),
+                        ),
                   const SizedBox(height: 10),
                   const Text("Email Address *",
                       style: TextStyle(fontWeight: FontWeight.bold)),
