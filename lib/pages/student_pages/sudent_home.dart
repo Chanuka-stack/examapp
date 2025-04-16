@@ -5,7 +5,7 @@ import 'package:speech_to_text/speech_recognition_result.dart';
 import '../../services/voice_recongintion_service.dart';
 import '../../services/text_to_speech_service.dart';
 import 'package:flutter_timer_countdown/flutter_timer_countdown.dart';
-import 'questions2.dart';
+import 'questions.dart';
 
 class StudentHome extends StatefulWidget {
   StudentHome({Key? key}) : super(key: key);
@@ -46,14 +46,18 @@ class _StudentHomeState extends State<StudentHome> {
       // Replace 'currentStudentId' with the actual student ID
       //final exams = await _examService.getUpcomingExams(studentId: 'currentStudentId');
       final exams = await _examService.getUpcomingExams();
+
       setState(() {
         upcomingExams = exams.map((exam) {
           // Convert Firestore data to your expected format
           return {
+            'id': exam['id'],
             'name': exam['name'],
             'date': _formatDate(exam['examDate'] as Timestamp),
             'startTime': exam['startTime'],
             'endTime': exam['endTime'],
+            'examDateTime': exam['examDateTime'],
+
             // Add any other fields you need
           };
         }).toList();
@@ -67,6 +71,26 @@ class _StudentHomeState extends State<StudentHome> {
   String _formatDate(Timestamp timestamp) {
     final date = timestamp.toDate();
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  }
+
+  DateTime convertFirebaseTimestampAndTimeString(
+      Timestamp firebaseTimestamp, String timeString) {
+    // Convert Firebase Timestamp to DateTime
+    DateTime date = firebaseTimestamp.toDate();
+
+    // Parse the time string
+    List<String> timeParts = timeString.split(":");
+    int hours = int.parse(timeParts[0]);
+    int minutes = int.parse(timeParts[1]);
+
+    // Create a new DateTime with the date from Firebase and time from string
+    return DateTime(
+      date.year,
+      date.month,
+      date.day,
+      hours,
+      minutes,
+    );
   }
 
   void _initSpeak() async {
@@ -116,10 +140,19 @@ class _StudentHomeState extends State<StudentHome> {
 
   void _navigateToHomePage() {
     _speechService.stopListening();
-    Navigator.pushReplacement(
+    if (upcomingExams.isNotEmpty) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+            builder: (context) => Qesutions(examData: upcomingExams[0])),
+      );
+    } else {
+      // If no exams available, navigate without an ID
+      /*Navigator.pushReplacement(
       context,
       MaterialPageRoute(builder: (context) => Qesutions()),
-    );
+    );*/
+    }
   }
 
   final DateTime startTime = DateTime(
@@ -423,7 +456,8 @@ class _StudentHomeState extends State<StudentHome> {
                       ),
                       child: TimerCountdown(
                         format: CountDownTimerFormat.hoursMinutesSeconds,
-                        endTime: startTime,
+                        endTime: convertFirebaseTimestampAndTimeString(
+                            exam['examDateTime'], exam['startTime']),
                         timeTextStyle: TextStyle(
                           fontSize: 16, // Adjust size
                           fontWeight: FontWeight.bold,
@@ -447,7 +481,8 @@ class _StudentHomeState extends State<StudentHome> {
                               Navigator.pushReplacement(
                                 context,
                                 MaterialPageRoute(
-                                    builder: (context) => Qesutions()),
+                                    builder: (context) =>
+                                        Qesutions(examData: exam)),
                               );
                             });
                           }
@@ -458,8 +493,11 @@ class _StudentHomeState extends State<StudentHome> {
                 ),
                 ElevatedButton(
                   onPressed: () {
-                    Navigator.push(context,
-                        MaterialPageRoute(builder: (context) => Qesutions()));
+                    print(exam['id']);
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => Qesutions(examData: exam)));
                   },
                   style: ElevatedButton.styleFrom(
                     shape: const CircleBorder(),

@@ -1,956 +1,498 @@
-import 'package:app1/services/text_to_speech_service.dart';
-import 'package:speech_to_text/speech_recognition_result.dart';
-import '../../services/voice_recongintion_service.dart';
 import 'package:flutter/material.dart';
-import '../components/audio_button.dart';
-import '../../services/timer.dart';
-import 'package:flutter_timer_countdown/flutter_timer_countdown.dart';
-import 'dart:async'; // Import for timer management
+import 'package:app1/data/exam.dart';
+import '../../services/voice_recongintion_service.dart';
+import '../../services/text_to_speech_service.dart';
 
 class Qesutions extends StatefulWidget {
-  const Qesutions({super.key});
+  final String? examId;
+
+  Qesutions(Map<String, dynamic> exam, {Key? key, this.examId})
+      : super(key: key);
 
   @override
-  State<Qesutions> createState() => _QesutionsState();
+  _QesutionsState createState() => _QesutionsState();
 }
 
-enum ExamState { ready, inProgress, ended }
-
-class _QesutionsState extends State<Qesutions> with WidgetsBindingObserver {
-  final TextToSpeechHelper ttsHelper = TextToSpeechHelper();
+class _QesutionsState extends State<Qesutions> {
   final SpeechRecognitionService _speechService = SpeechRecognitionService();
-  bool _isInitialized = false;
-  String _lastWords = '';
+  final TextToSpeechHelper ttsHelper = TextToSpeechHelper();
+  final ExamFirebaseService _examService = ExamFirebaseService();
 
-  // List to keep track of all active timers
-  final List<Timer> _timers = [];
-
-  // Flag to track if the widget is still mounted
-  bool _isMounted = true;
-
-  /// Example: Exam is from 10:00 AM to 12:00 PM
-  final DateTime startTime = DateTime(
-    DateTime.now().year,
-    DateTime.now().month,
-    DateTime.now().day,
-    20,
-    22,
-    30,
-  );
-  final DateTime endTime = DateTime(
-    DateTime.now().year,
-    DateTime.now().month,
-    DateTime.now().day,
-    23,
-    00,
-    0,
-  );
-
-  ExamState _currentState = ExamState.ready;
-
-  int _currentSectionIndex = 0;
-  int _currentQuestionIndex = -1;
-  int _currentSubQuestionIndex = -1;
-
-  // Question list without formal data models
-  late List<Map<String, dynamic>> sections;
-
-  // Safe setState that checks if the widget is still mounted
-  void _safeSetState(VoidCallback fn) {
-    if (_isMounted) {
-      setState(fn);
-    }
-  }
-
-  // Create a timer that will be automatically cancelled on dispose
-  Timer _createTimer(Duration duration, Function() callback) {
-    final timer = Timer(duration, () {
-      if (_isMounted) {
-        callback();
-      }
-    });
-    _timers.add(timer);
-    return timer;
-  }
+  bool _isLoading = true;
+  Map<String, dynamic> examData = {};
+  List<dynamic> sections = [];
+  int currentSectionIndex = 0;
+  int currentQuestionIndex = 0;
+  int currentSubQuestionIndex = 0;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
-    _initializeData();
-    _initSpeechAndStart();
-  }
+    String? examId = widget.examId;
+    print('Exam ID in initState: $examId');
 
-  void _initializeData() {
-    // Initialize question data
-    if (DateTime.now().isBefore(startTime)) {
-      _currentState = ExamState.ready;
-    } else if (DateTime.now().isAfter(endTime)) {
-      _currentState = ExamState.ended;
-    } else {
-      _currentState = ExamState.inProgress;
+    // You can use it to initialize state or make API calls
+    if (examId != null) {
+      _loadExamQuestions(examId);
     }
-
-    sections = [
-      {
-        'title': 'SECTION 01',
-        'questions': [
-          {
-            'title': 'Explain the concept of supply and demand.',
-            'subQuestions': [
-              {
-                'text':
-                    'Discuss how equilibrium price is determined in a competitive market.',
-                'marks': 25,
-              },
-              {
-                'text': 'Define demand and supply with relevant examples.',
-                'marks': 20,
-              },
-            ],
-          },
-          {
-            'title': 'Second question title',
-            'subQuestions': [
-              {'text': 'Second question subquestion 1', 'marks': 15},
-              {'text': 'Second question subquestion 2', 'marks': 10},
-            ],
-          },
-        ],
-      },
-      {
-        'title': 'SECTION 02',
-        'questions': [
-          {
-            'title': 'Sample Question for Section 2',
-            'subQuestions': [
-              {'text': 'Sample subquestion for section 2', 'marks': 15},
-            ],
-          },
-        ],
-      },
-    ];
   }
 
-  void _initSpeechAndStart() async {
+  Future<void> _loadExamQuestions(String examId) async {
     try {
-      await _speechService.initSpeech();
-      if (!_isMounted) return;
-
-      _safeSetState(() {
-        _isInitialized = true;
+      final data = await _examService.getExamWithQuestions(examId);
+      setState(() {
+        examData = data;
+        sections = List<dynamic>.from(data['sections'] ?? []);
+        _isLoading = false;
       });
 
-      // Start listening automatically
-      _startListening();
+      // Initialize TTS with exam title
+      _initSpeak();
     } catch (e) {
-      print("Error initializing speech: $e");
-    }
-  }
-
-  void _startListening() async {
-    if (!_isMounted) return;
-
-    try {
-      await _speechService.startListening(onResult: (result) {
-        if (_isMounted) {
-          _processResult(result);
-        }
+      print('Error loading exam questions: $e');
+      setState(() {
+        _isLoading = false;
+        // Handle error case
       });
-
-      // Set up a timer to check if listening has stopped
-      _createTimer(Duration(seconds: 5), () {
-        if (_isMounted) {
-          _speechService.checkAndRestartListening(() {
-            if (_isMounted) {
-              _startListening();
-            }
-          });
-        }
-      });
-    } catch (e) {
-      print("Error starting listening: $e");
     }
   }
 
-  void _processResult(SpeechRecognitionResult result) {
-    if (!_isMounted) return;
+  void _initSpeak() async {
+    await ttsHelper.initTTS(
+        language: "en-US", rate: 0.5, pitch: 1.0, volume: 1.0);
 
-    _safeSetState(() {
-      _lastWords = result.recognizedWords;
+    String welcomeText = "Welcome to the exam: ${examData['name']}. ";
 
-      if (_currentState == ExamState.inProgress) {
-        if (_lastWords.toLowerCase().contains('i am ready for exam')) {
-          _goToFirstQuestion();
-        }
-        if (_lastWords.toLowerCase().contains('next question')) {
-          _nextQuestion();
-        }
-        if (_lastWords.toLowerCase().contains('previous question')) {
-          _previousQuestion();
-        }
-      }
-    });
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Handle app lifecycle changes
-    if (state == AppLifecycleState.paused ||
-        state == AppLifecycleState.detached) {
-      // App is in background or being closed, clean up resources
-      _cleanupResources();
+    if (sections.isNotEmpty &&
+        sections[0]['questions'] != null &&
+        sections[0]['questions'].isNotEmpty &&
+        sections[0]['questions'][0]['subQuestions'] != null &&
+        sections[0]['questions'][0]['subQuestions'].isNotEmpty) {
+      welcomeText +=
+          "First question is: ${sections[0]['questions'][0]['title']}. ";
+      welcomeText +=
+          "First sub-question: ${sections[0]['questions'][0]['subQuestions'][0]['text']}";
     }
+
+    await ttsHelper.speak(welcomeText);
   }
 
-  void _cleanupResources() {
-    // Stop all ongoing operations
-    _speechService.stopListening();
-    ttsHelper.stop();
+  // Navigation methods for questions and sub-questions
+  void goToNextSubQuestion() {
+    if (currentSectionIndex < sections.length) {
+      var currentSection = sections[currentSectionIndex];
 
-    // Cancel all timers
-    for (var timer in _timers) {
-      timer.cancel();
-    }
-    _timers.clear();
-  }
+      if (currentSection['questions'] != null &&
+          currentQuestionIndex < currentSection['questions'].length) {
+        var currentQuestion = currentSection['questions'][currentQuestionIndex];
 
-  @override
-  void dispose() {
-    _isMounted = false;
-    _cleanupResources();
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
-  }
-
-  void _nextQuestion() {
-    if (!_isMounted) return;
-
-    ttsHelper.stop();
-    _safeSetState(() {
-      final currentQuestion =
-          sections[_currentSectionIndex]['questions'][_currentQuestionIndex];
-      if (_currentSubQuestionIndex <
-          currentQuestion['subQuestions'].length - 1) {
-        // Go to next subquestion
-        _currentSubQuestionIndex++;
-      } else {
-        // Go to next question
-        _currentSubQuestionIndex = 0;
-        if (_currentQuestionIndex <
-            sections[_currentSectionIndex]['questions'].length - 1) {
-          _currentQuestionIndex++;
-        } else {
-          // Go to next section
-          if (_currentSectionIndex < sections.length - 1) {
-            _currentSectionIndex++;
-            _currentQuestionIndex = 0;
+        if (currentQuestion['subQuestions'] != null) {
+          if (currentSubQuestionIndex <
+              currentQuestion['subQuestions'].length - 1) {
+            setState(() {
+              currentSubQuestionIndex++;
+            });
           } else {
-            // End exam if all sections are completed
-            _endExam();
-            return; // Added return to prevent further execution
+            goToNextQuestion();
           }
-        }
-      }
-    });
-  }
-
-  void _previousQuestion() {
-    if (!_isMounted) return;
-
-    ttsHelper.stop();
-    _safeSetState(() {
-      if (_currentSubQuestionIndex == 0 &&
-          _currentQuestionIndex == 0 &&
-          _currentSectionIndex == 0) {
-        _currentSubQuestionIndex = -1;
-        _currentQuestionIndex = -1;
-      }
-      if (_currentSubQuestionIndex > 0) {
-        // Go to previous subquestion
-        _currentSubQuestionIndex--;
-      } else {
-        // Go to previous question
-        if (_currentQuestionIndex > 0) {
-          _currentQuestionIndex--;
-          final prevQuestion = sections[_currentSectionIndex]['questions']
-              [_currentQuestionIndex];
-          _currentSubQuestionIndex = prevQuestion['subQuestions'].length - 1;
         } else {
-          // Go to previous section
-          if (_currentSectionIndex > 0) {
-            _currentSectionIndex--;
-            _currentQuestionIndex =
-                sections[_currentSectionIndex]['questions'].length - 1;
-            final prevQuestion = sections[_currentSectionIndex]['questions']
-                [_currentQuestionIndex];
-            _currentSubQuestionIndex = prevQuestion['subQuestions'].length - 1;
-          }
+          goToNextQuestion();
         }
+      } else {
+        goToNextQuestion();
       }
-    });
-  }
 
-  void _goToFinalQuestion() {
-    if (!_isMounted) return;
-
-    ttsHelper.stop();
-    _safeSetState(() {
-      final lastSectionIndex = sections.length - 1;
-      final lastQuestionIndex =
-          sections[lastSectionIndex]['questions'].length - 1;
-      final lastSubQuestionIndex = sections[lastSectionIndex]['questions']
-                  [lastQuestionIndex]['subQuestions']
-              .length -
-          1;
-
-      _currentSectionIndex = lastSectionIndex;
-      _currentQuestionIndex = lastQuestionIndex;
-      _currentSubQuestionIndex = lastSubQuestionIndex;
-    });
-  }
-
-  void _goToFirstQuestion() {
-    if (!_isMounted) return;
-
-    ttsHelper.stop();
-    _safeSetState(() {
-      _currentSectionIndex = 0;
-      _currentQuestionIndex = 0;
-      _currentSubQuestionIndex = 0;
-    });
-  }
-
-  void _startExam() {
-    if (!_isMounted) return;
-
-    _safeSetState(() {
-      _currentState = ExamState.inProgress;
-    });
-  }
-
-  void _endExam() {
-    if (!_isMounted) return;
-
-    _safeSetState(() {
-      _currentState = ExamState.ended;
-    });
-  }
-
-  // Safe wrapper for text-to-speech operations
-  Future<void> _safeSpeakText(String text, {double rate = 0.5}) async {
-    if (!_isMounted) return;
-
-    try {
-      await ttsHelper.initTTS(
-          language: "en-US", rate: rate, pitch: 1.0, volume: 1.0);
-      if (!_isMounted) return;
-
-      await ttsHelper.speak(text);
-    } catch (e) {
-      print("Error in text-to-speech: $e");
+      // Speak the new sub-question
+      _speakCurrentSubQuestion();
     }
   }
 
-  void _speakSection(String text) async {
-    await _safeSpeakText(text);
+  void goToNextQuestion() {
+    if (currentSectionIndex < sections.length) {
+      var currentSection = sections[currentSectionIndex];
+
+      if (currentSection['questions'] != null &&
+          currentQuestionIndex < currentSection['questions'].length - 1) {
+        setState(() {
+          currentQuestionIndex++;
+          currentSubQuestionIndex = 0; // Reset sub-question index
+        });
+      } else if (currentSectionIndex < sections.length - 1) {
+        setState(() {
+          currentSectionIndex++;
+          currentQuestionIndex = 0;
+          currentSubQuestionIndex = 0;
+        });
+      }
+
+      // Speak the new question
+      _speakCurrentSubQuestion();
+    }
   }
 
-  void _speakR(String text) async {
-    await _safeSpeakText(text);
+  void goToPreviousSubQuestion() {
+    if (currentSubQuestionIndex > 0) {
+      setState(() {
+        currentSubQuestionIndex--;
+      });
+    } else {
+      goToPreviousQuestion();
+    }
+
+    // Speak the new sub-question
+    _speakCurrentSubQuestion();
   }
 
-  void _speakMainQuestion(String text) async {
-    await _safeSpeakText(text);
+  void goToPreviousQuestion() {
+    if (currentQuestionIndex > 0) {
+      setState(() {
+        currentQuestionIndex--;
+
+        // Set sub-question index to the last sub-question of the previous question
+        var currentSection = sections[currentSectionIndex];
+        if (currentSection['questions'] != null &&
+            currentSection['questions'][currentQuestionIndex]['subQuestions'] !=
+                null) {
+          currentSubQuestionIndex = currentSection['questions']
+                      [currentQuestionIndex]['subQuestions']
+                  .length -
+              1;
+        } else {
+          currentSubQuestionIndex = 0;
+        }
+      });
+    } else if (currentSectionIndex > 0) {
+      setState(() {
+        currentSectionIndex--;
+
+        // Set question index to the last question of the previous section
+        if (sections[currentSectionIndex]['questions'] != null) {
+          currentQuestionIndex =
+              sections[currentSectionIndex]['questions'].length - 1;
+
+          // Set sub-question index to the last sub-question of the last question
+          if (sections[currentSectionIndex]['questions'][currentQuestionIndex]
+                  ['subQuestions'] !=
+              null) {
+            currentSubQuestionIndex = sections[currentSectionIndex]['questions']
+                        [currentQuestionIndex]['subQuestions']
+                    .length -
+                1;
+          } else {
+            currentSubQuestionIndex = 0;
+          }
+        } else {
+          currentQuestionIndex = 0;
+          currentSubQuestionIndex = 0;
+        }
+      });
+    }
+
+    // Speak the new sub-question
+    _speakCurrentSubQuestion();
   }
 
-  void _speakSubQuestion(String text) async {
-    await _safeSpeakText(text);
+  void _speakCurrentSubQuestion() {
+    try {
+      if (currentSectionIndex < sections.length) {
+        var currentSection = sections[currentSectionIndex];
+
+        if (currentSection['questions'] != null &&
+            currentQuestionIndex < currentSection['questions'].length) {
+          var currentQuestion =
+              currentSection['questions'][currentQuestionIndex];
+
+          String textToSpeak =
+              "Question: ${currentQuestion['title'] ?? 'Unnamed question'}. ";
+
+          if (currentQuestion['subQuestions'] != null &&
+              currentSubQuestionIndex <
+                  currentQuestion['subQuestions'].length) {
+            var subQuestion =
+                currentQuestion['subQuestions'][currentSubQuestionIndex];
+            textToSpeak += "Sub-question: ${subQuestion['text']}";
+          }
+
+          ttsHelper.speak(textToSpeak);
+        }
+      }
+    } catch (e) {
+      print("Error speaking current question: $e");
+    }
   }
 
-  void _speakIntro(String text) async {
-    await _safeSpeakText(text);
+  // Process voice commands
+  void processVoiceCommand(String command) {
+    String lowerCommand = command.toLowerCase();
+
+    if (lowerCommand.contains('next question')) {
+      goToNextQuestion();
+    } else if (lowerCommand.contains('previous question')) {
+      goToPreviousQuestion();
+    } else if (lowerCommand.contains('next sub-question') ||
+        lowerCommand.contains('next subquestion')) {
+      goToNextSubQuestion();
+    } else if (lowerCommand.contains('previous sub-question') ||
+        lowerCommand.contains('previous subquestion')) {
+      goToPreviousSubQuestion();
+    } else if (lowerCommand.contains('finish exam')) {
+      // Handle exam completion
+      _finishExam();
+    }
   }
 
-  void _speakOutro(String text) async {
-    await _safeSpeakText(text);
+  void _finishExam() {
+    // Show a confirmation dialog
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Finish Exam'),
+        content: Text('Are you sure you want to finish this exam?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context); // Close dialog
+              Navigator.pop(context); // Return to previous screen
+            },
+            child: Text('Confirm'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(body: SafeArea(child: _getScreenForState()));
-  }
-
-  Widget _getScreenForState() {
-    // If exam is manually ended or time is up, show ended screen
-    if (_currentState == ExamState.ended) {
-      return _buildExamEndedScreen();
+    if (_isLoading) {
+      return Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
     }
 
-    // If exam hasn't started yet and it's before exam time
-    if (_currentState == ExamState.ready) {
-      return _buildReadyScreen();
+    if (sections.isEmpty) {
+      return Scaffold(
+        appBar: AppBar(title: Text('Exam')),
+        body: Center(child: Text('No questions available for this exam')),
+      );
     }
 
-    // If exam is in progress
-    if (_currentState == ExamState.inProgress) {
-      // If we're at the very beginning, show the section intro
-      if (_currentQuestionIndex == -1 && _currentSubQuestionIndex == -1) {
-        return _buildSectionIntroScreen();
+    // Get current section, question, and sub-question
+    Map<dynamic, dynamic> currentSection = sections[currentSectionIndex];
+
+    Widget content;
+
+    if (currentSection['questions'] == null ||
+        currentSection['questions'].isEmpty) {
+      content = Center(child: Text('No questions in this section'));
+    } else {
+      var currentQuestion = currentSection['questions'][currentQuestionIndex];
+
+      if (currentQuestion['subQuestions'] == null ||
+          currentQuestion['subQuestions'].isEmpty) {
+        content = Center(child: Text('No sub-questions available'));
       } else {
-        return _buildQuestionScreen();
-      }
-    }
+        var subQuestion =
+            currentQuestion['subQuestions'][currentSubQuestionIndex];
 
-    // Fallback case
-    return _buildExamEndedScreen();
-  }
-
-  Widget _buildReadyScreen() {
-    // Use a safer approach with a single post-frame callback
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_isMounted) {
-        _safeSpeakText('STAY READY');
-        _createTimer(Duration(milliseconds: 2000), () {
-          if (_isMounted) {
-            _safeSpeakText('SINHALA LITERATURE PART II - [YIS2-SL-9282]');
-            _createTimer(Duration(milliseconds: 3000), () {
-              if (_isMounted) {
-                _safeSpeakText('Your exam will start in');
-              }
-            });
-          }
-        });
-      }
-    });
-
-    return Container(
-      padding: EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+        content = SingleChildScrollView(
+          padding: EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: Colors.deepPurple,
-                  shape: BoxShape.circle,
-                ),
-                child: IconButton(
-                  icon: Icon(Icons.arrow_back),
-                  color: Colors.white,
-                  onPressed: () {
-                    Navigator.pop(context);
-                  },
-                ),
-              ),
-              SizedBox(width: 16),
+              // Section info
               Text(
-                'STAY READY',
+                'Section: ${currentSection['title'] ?? 'Unnamed Section'}',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  fontFamily: 'sans-serif',
                 ),
               ),
-            ],
-          ),
-          SizedBox(height: 32),
-          Text(
-            'SINHALA LITERATURE PART II - [YIS2-SL-9282]',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              fontFamily: 'sans-serif',
-            ),
-          ),
-          SizedBox(height: 64),
-          Center(
-            child: Column(
-              children: [
-                Text('Your exam will start in',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontFamily: 'sans-serif',
-                    )),
-                SizedBox(height: 16),
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.red,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: TimerCountdown(
-                    format: CountDownTimerFormat.hoursMinutesSeconds,
-                    timeTextStyle: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                    descriptionTextStyle: TextStyle(
-                      fontSize: 0,
-                      color: Colors.transparent,
-                      fontFamily: 'sans-serif',
-                    ),
-                    colonsTextStyle: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontFamily: 'sans-serif',
-                    ),
-                    endTime: startTime,
-                    onEnd: () {
-                      if (_isMounted) {
-                        _startExam();
-                      }
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Spacer(),
-        ],
-      ),
-    );
-  }
+              SizedBox(height: 16),
 
-  Widget _buildSectionIntroScreen() {
-    // Use a safer approach with a single post-frame callback
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_isMounted) {
-        final String introText =
-            'This exam has two sections: Section 1 requires answering all questions, while in Section 2, you may choose any two questions out of five. The total duration is 2 hours.';
-        _safeSpeakText(introText);
-      }
-    });
-
-    return Container(
-      padding: EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: Colors.transparent,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(Icons.arrow_back, color: Colors.transparent),
-              ),
+              // Question
               Text(
-                sections[_currentSectionIndex]['title'],
+                'Question: ${currentQuestion['title'] ?? 'Unnamed Question'}',
                 style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  fontFamily: 'sans-serif',
-                ),
-              ),
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: Colors.transparent,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(Icons.arrow_forward, color: Colors.transparent),
-              ),
-            ],
-          ),
-          SizedBox(height: 16),
-          Center(
-            child: Container(
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.red,
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: TimerCountdown(
-                format: CountDownTimerFormat.hoursMinutesSeconds,
-                timeTextStyle: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-                descriptionTextStyle: TextStyle(
-                  fontSize: 0,
-                  color: Colors.transparent,
-                  fontFamily: 'sans-serif',
-                ),
-                colonsTextStyle: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontFamily: 'sans-serif',
-                ),
-                endTime: endTime,
-                onEnd: () {
-                  if (_isMounted) {
-                    _endExam();
-                  }
-                },
-              ),
-            ),
-          ),
-          SizedBox(height: 24),
-          Text(
-            'This exam has two sections:',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              fontFamily: 'sans-serif',
-            ),
-          ),
-          SizedBox(height: 16),
-          Text(
-            'Section 1 requires answering all questions,',
-            style: TextStyle(
-              fontSize: 16,
-              fontFamily: 'sans-serif',
-            ),
-          ),
-          SizedBox(height: 8),
-          Text(
-            'while in Section 2, you may choose any two questions out of five.',
-            style: TextStyle(
-              fontSize: 16,
-              fontFamily: 'sans-serif',
-            ),
-          ),
-          SizedBox(height: 16),
-          Text(
-            'The total duration is 2 hours.',
-            style: TextStyle(
-              fontSize: 16,
-              fontFamily: 'sans-serif',
-            ),
-          ),
-          SizedBox(height: 16),
-          Text(
-            'Say,',
-            style: TextStyle(
-              fontSize: 16,
-              fontFamily: 'sans-serif',
-            ),
-          ),
-          Text(
-            '"I am redy for exam"',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              fontFamily: 'sans-serif',
-            ),
-          ),
-          Text(
-            'to start the exam',
-            style: TextStyle(
-              fontSize: 16,
-              fontFamily: 'sans-serif',
-            ),
-          ),
-          SizedBox(height: 48),
-          Center(
-            child: ElevatedButton(
-              onPressed: () {
-                if (_isMounted) {
-                  _goToFirstQuestion();
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                shape: const CircleBorder(),
-                backgroundColor: Colors.orange,
-                foregroundColor: Colors.white,
-                minimumSize: const Size(100, 100),
-              ),
-              child: const Text(
-                'START',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontFamily: 'sans-serif',
                 ),
               ),
-            ),
-          )
+              SizedBox(height: 8),
+
+              // Sub-question
+              Container(
+                padding: EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Sub-question ${currentSubQuestionIndex + 1}:',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      subQuestion['text'] ?? 'No text available',
+                      style: TextStyle(fontSize: 16),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      'Marks: ${subQuestion['marks'] ?? 0}',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontStyle: FontStyle.italic,
+                        color: Colors.red,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              SizedBox(height: 24),
+
+              // Answer field
+              TextField(
+                maxLines: 5,
+                decoration: InputDecoration(
+                  hintText: 'Enter your answer here...',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+
+              SizedBox(height: 24),
+
+              // Navigation buttons
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  ElevatedButton(
+                    onPressed: currentSectionIndex > 0 ||
+                            currentQuestionIndex > 0 ||
+                            currentSubQuestionIndex > 0
+                        ? goToPreviousSubQuestion
+                        : null,
+                    child: Text('Previous'),
+                  ),
+                  ElevatedButton(
+                    onPressed: _finishExam,
+                    child: Text('Finish Exam'),
+                  ),
+                  ElevatedButton(
+                    onPressed: _hasMoreContent() ? goToNextSubQuestion : null,
+                    child: Text('Next'),
+                  ),
+                ],
+              ),
+
+              // Progress info
+              SizedBox(height: 16),
+              _buildProgressIndicator(),
+            ],
+          ),
+        );
+      }
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(examData['name'] ?? 'Exam'),
+        actions: [
+          // Add a timer widget here if needed
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Icon(Icons.timer),
+          ),
         ],
       ),
+      body: content,
     );
   }
 
-  Widget _buildQuestionScreen() {
-    final question =
-        sections[_currentSectionIndex]['questions'][_currentQuestionIndex];
-    final subQuestion = question['subQuestions'][_currentSubQuestionIndex];
+  bool _hasMoreContent() {
+    // Check if there are more sub-questions, questions, or sections
+    if (currentSectionIndex < sections.length) {
+      var currentSection = sections[currentSectionIndex];
 
-    // Use a safer approach with a single post-frame callback
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_isMounted) {
-        // First speak the main question if this is the first subquestion
-        if (_currentSubQuestionIndex == 0) {
-          _safeSpeakText(question['title']);
+      if (currentSection['questions'] != null &&
+          currentQuestionIndex < currentSection['questions'].length) {
+        var currentQuestion = currentSection['questions'][currentQuestionIndex];
 
-          // Then speak the subquestion after a short delay
-          _createTimer(Duration(milliseconds: 2000), () {
-            if (_isMounted) {
-              _safeSpeakText(subQuestion['text']);
-            }
-          });
-        } else {
-          _safeSpeakText(subQuestion['text']);
+        if (currentQuestion['subQuestions'] != null &&
+            currentSubQuestionIndex <
+                currentQuestion['subQuestions'].length - 1) {
+          return true; // More sub-questions in current question
+        } else if (currentQuestionIndex <
+            currentSection['questions'].length - 1) {
+          return true; // More questions in current section
+        } else if (currentSectionIndex < sections.length - 1) {
+          return true; // More sections
         }
       }
-    });
+    }
 
-    return Container(
-      padding: EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              GestureDetector(
-                onTap: _previousQuestion,
-                child: Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: Colors.deepPurple,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(Icons.arrow_back, color: Colors.white),
-                ),
-              ),
-              Text(
-                sections[_currentSectionIndex]['title'],
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  fontFamily: 'sans-serif',
-                ),
-              ),
-              GestureDetector(
-                onTap: _nextQuestion,
-                child: Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: Colors.deepPurple,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(Icons.arrow_forward, color: Colors.white),
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: 16),
-          Center(
-            child: Container(
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.red,
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: TimerCountdown(
-                format: CountDownTimerFormat.hoursMinutesSeconds,
-                timeTextStyle: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-                descriptionTextStyle: TextStyle(
-                  fontSize: 0,
-                  color: Colors.transparent,
-                  fontFamily: 'sans-serif',
-                ),
-                colonsTextStyle: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontFamily: 'sans-serif',
-                ),
-                endTime: endTime,
-                onEnd: () {
-                  if (_isMounted) {
-                    _endExam();
-                  }
-                },
-              ),
-            ),
-          ),
-          SizedBox(height: 16),
-          Container(
-            width: double.infinity,
-            padding: EdgeInsets.all(12),
-            color: Colors.grey[800],
-            child: Text(
-              'QUESTION ${_currentQuestionIndex + 1}',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                fontFamily: 'sans-serif',
-              ),
-            ),
-          ),
-          SizedBox(height: 8),
-          Text(
-            question['title'],
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              fontFamily: 'sans-serif',
-            ),
-          ),
-          SizedBox(height: 16),
-          Container(
-            width: double.infinity,
-            padding: EdgeInsets.all(8),
-            color: Colors.grey[700],
-            child: Text(
-              'SUB QUESTION ${_currentQuestionIndex + 1}.${_currentSubQuestionIndex + 1}',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                fontFamily: 'sans-serif',
-              ),
-            ),
-          ),
-          SizedBox(height: 8),
-          Text(subQuestion['text'], style: TextStyle(fontSize: 16)),
-          Text(
-            '(${subQuestion['marks']} Marks)',
-            style: TextStyle(
-              fontSize: 14,
-              fontStyle: FontStyle.italic,
-              fontFamily: 'sans-serif',
-            ),
-          ),
-          SizedBox(height: 25),
-          Center(child: AudioRecordButton()),
-          SizedBox(height: 25),
-          Container(
-            height: 200,
-            padding: EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: TextField(
-              decoration: InputDecoration(
-                border: InputBorder.none,
-                hintText: "Enter your text...",
-              ),
-              keyboardType: TextInputType.multiline,
-              maxLines: null,
-              expands: true,
-            ),
-          )
-        ],
-      ),
+    return false; // No more content
+  }
+
+  Widget _buildProgressIndicator() {
+    // Calculate total questions and current position
+    int totalSections = sections.length;
+    int totalQuestions = 0;
+    int totalSubQuestions = 0;
+    int currentPosition = 0;
+
+    for (int s = 0; s < sections.length; s++) {
+      var section = sections[s];
+      if (section['questions'] != null) {
+        for (int q = 0; q < section['questions'].length; q++) {
+          var question = section['questions'][q];
+          if (question['subQuestions'] != null) {
+            int subQCount = question['subQuestions'].length;
+            totalSubQuestions += subQCount;
+
+            // Calculate current position
+            if (s < currentSectionIndex ||
+                (s == currentSectionIndex && q < currentQuestionIndex)) {
+              currentPosition += subQCount;
+            } else if (s == currentSectionIndex && q == currentQuestionIndex) {
+              currentPosition += currentSubQuestionIndex + 1;
+            }
+          }
+        }
+        totalQuestions += (section['questions']?.length ?? 0) as int;
+      }
+    }
+
+    return Column(
+      children: [
+        Text(
+          'Question ${currentPosition} of ${totalSubQuestions}',
+          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+        ),
+        SizedBox(height: 8),
+        LinearProgressIndicator(
+          value:
+              totalSubQuestions > 0 ? currentPosition / totalSubQuestions : 0,
+          backgroundColor: Colors.grey.shade200,
+          valueColor: AlwaysStoppedAnimation<Color>(Colors.orange),
+        ),
+      ],
     );
   }
 
-  Widget _buildExamEndedScreen() {
-    // Use a safer approach with a single post-frame callback
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_isMounted) {
-        _safeSpeakText('Your exam has been submitted');
-      }
-    });
-
-    return Container(
-      padding: EdgeInsets.all(16),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: Colors.deepPurple,
-                  shape: BoxShape.circle,
-                ),
-                child: IconButton(
-                  icon: Icon(Icons.arrow_back),
-                  color: Colors.white,
-                  onPressed: () {
-                    if (_isMounted) {
-                      _safeSetState(() {
-                        _currentState = ExamState.inProgress;
-                      });
-                      _goToFinalQuestion();
-                    }
-                  },
-                ),
-              ),
-              SizedBox(width: 16),
-              Text(
-                'EXAM ENDED',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  fontFamily: 'sans-serif',
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: 16),
-          Center(
-            child: Container(
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.red,
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: TimerCountdown(
-                format: CountDownTimerFormat.hoursMinutesSeconds,
-                timeTextStyle: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-                descriptionTextStyle: TextStyle(
-                  fontSize: 0,
-                  color: Colors.transparent,
-                  fontFamily: 'sans-serif',
-                ),
-                colonsTextStyle: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontFamily: 'sans-serif',
-                ),
-                endTime: DateTime.now().add(
-                  Duration(
-                    hours: 00,
-                    minutes: 00,
-                    seconds: 34,
-                  ),
-                ),
-                onEnd: () {
-                  print("Timer finished");
-                },
-              ),
-            ),
-          ),
-          Spacer(),
-          Center(
-            child: Text(
-              'Your exam has been submitted',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                fontFamily: 'sans-serif',
-              ),
-            ),
-          ),
-          Spacer(),
-        ],
-      ),
-    );
+  @override
+  void dispose() {
+    _speechService.stopListening();
+    ttsHelper.stop();
+    super.dispose();
   }
 }

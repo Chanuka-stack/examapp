@@ -323,4 +323,37 @@ class ExamFirebaseService {
       throw e;
     }
   }
+
+  // Add this function to your ExamFirebaseService class
+  Future<Map<String, dynamic>> getExamWithQuestions(String examId) async {
+    try {
+      // Get exam details
+      DocumentSnapshot examDoc = await _examsCollection.doc(examId).get();
+
+      if (!examDoc.exists) {
+        throw Exception("Exam not found");
+      }
+
+      // Get exam questions
+      DocumentSnapshot questionsDoc =
+          await _examQuestionsCollection.doc(examId).get();
+
+      Map<String, dynamic> examData = examDoc.data() as Map<String, dynamic>;
+      examData['id'] = examDoc.id;
+
+      // Add questions data if available
+      if (questionsDoc.exists) {
+        Map<String, dynamic> questionsData =
+            questionsDoc.data() as Map<String, dynamic>;
+        examData['sections'] = questionsData['sections'] ?? [];
+      } else {
+        examData['sections'] = [];
+      }
+
+      return examData;
+    } catch (e) {
+      print("Error fetching exam with questions: $e");
+      throw e;
+    }
+  }
 }
