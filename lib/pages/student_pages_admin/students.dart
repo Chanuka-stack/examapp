@@ -189,7 +189,12 @@ class _StudentsState extends State<Students> {
             Column(
               children: [
                 Text("Division", style: const TextStyle(color: Colors.black54)),
-                Text(Student["division"])
+                Text(
+                  Student["division"],
+                  style: TextStyle(
+                    fontSize: 14, // Adjust this value (default is 14)
+                  ),
+                )
               ],
             )
           ],

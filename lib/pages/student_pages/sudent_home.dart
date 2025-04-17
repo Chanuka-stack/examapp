@@ -1,4 +1,5 @@
 import 'package:app1/data/exam.dart';
+import 'package:app1/services/auth_services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
@@ -246,25 +247,13 @@ class _StudentHomeState extends State<StudentHome> {
           ],
         ),
         actions: [
-          GestureDetector(
-            onTap: () {
+          IconButton(
+            icon: Icon(Icons.logout, size: 30),
+            onPressed: () async {
               // Handle profile button tap
-              ScaffoldMessenger.of(
-                context,
-              ).showSnackBar(const SnackBar(content: Text('Profile clicked')));
+              await AuthService().signout(context: context);
             },
-            child: const CircleAvatar(
-              backgroundColor: Colors.red,
-              radius: 16,
-              child: Text(
-                'P',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontFamily: 'sans-serif',
-                ),
-              ),
-            ),
+            color: Colors.blueAccent,
           ),
           const SizedBox(width: 16),
         ],

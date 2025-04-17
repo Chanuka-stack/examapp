@@ -1,11 +1,18 @@
+import 'dart:convert';
 import 'dart:math';
 import 'package:app1/data/division.dart';
 import 'package:app1/data/student.dart';
 import 'package:app1/services/auth_services.dart';
+import 'package:emailjs/emailjs.dart';
+import 'package:emailjs/emailjs.dart' as emailjs;
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:email_validator/email_validator.dart';
+import 'package:http/http.dart' as http;
 import '../components/audio_button.dart';
+import 'package:mailer/mailer.dart';
+import 'package:mailer/smtp_server.dart';
+import 'package:emailjs/emailjs.dart';
 
 class StudentFormScreen extends StatefulWidget {
   @override
@@ -227,6 +234,7 @@ class _StudentFormScreenState extends State<StudentFormScreen> {
           List.generate(8, (index) => chars[random.nextInt(chars.length)])
               .join();
 
+      sendEmailDirectly(email, password);
       AuthService auth = AuthService();
       await auth.signupStudent(
           email: email,
@@ -242,6 +250,72 @@ class _StudentFormScreenState extends State<StudentFormScreen> {
       );
       await Future.delayed(const Duration(seconds: 2));
       Navigator.pop(context);
+    }
+  }
+
+  /*Future<bool> sendEmail(dynamic templateParams) async {
+    try {
+      await emailjs.send(
+        'service_1wp8wkj',
+        'template_f1ghq3i',
+        templateParams,
+        const emailjs.Options(
+          publicKey: 'o2LIoEIuHTqkuhDVM',
+        ),
+      );
+      print('SUCCESS!');
+      return true;
+    } catch (error) {
+      if (error is emailjs.EmailJSResponseStatus) {
+        print('ERROR... ${error.status}: ${error.text}');
+      }
+      print(error.toString());
+      return false;
+    }
+  }*/
+
+  Future<bool> sendEmailDirectly(String email, String password) async {
+    const serviceId = 'service_1wp8wkj';
+    const templateId = 'template_2lmitku';
+    const userId = 'o2LIoEIuHTqkuhDVM';
+
+    final url = Uri.parse('https://api.emailjs.com/api/v1.0/email/send');
+
+    final templateParams = {
+      'subject': 'Your Login Credentials',
+      'from_name': 'Admin',
+      'message': '''
+Your login credentials are as follows:
+
+Email: $email
+Password: $password
+
+Please change your password after first login.
+''',
+      'email': email,
+    };
+
+    final response = await http.post(
+      url,
+      headers: {
+        'origin': 'http://localhost', // Required by EmailJS
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({
+        'service_id': serviceId,
+        'template_id': templateId,
+        'user_id': userId,
+        'template_params': templateParams,
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      print('Email sent successfully!');
+      return true;
+    } else {
+      print('Failed with status: ${response.statusCode}');
+      print('Response body: ${response.body}');
+      return false;
     }
   }
 

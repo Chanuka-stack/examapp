@@ -373,7 +373,7 @@ class _QesutionsState extends State<Qesutions> {
     });*/
     Future.microtask(() {
       _speakR('STAY READY');
-      _speakR('SINHALA LITERATURE PART II - [YIS2-SL-9282]');
+      _speakR(widget.examData['name']);
       _speakR('Your exam will start in ');
     });
     return Container(
@@ -411,7 +411,7 @@ class _QesutionsState extends State<Qesutions> {
           ),
           SizedBox(height: 32),
           Text(
-            'SINHALA LITERATURE PART II - [YIS2-SL-9282]',
+            widget.examData['name'],
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
