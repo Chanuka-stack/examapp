@@ -324,6 +324,48 @@ class ExamFirebaseService {
     }
   }
 
+  Future<List<Map<String, dynamic>>> getNotFinishedExams({
+    required String studentId,
+  }) async {
+    try {
+      DateTime now = DateTime.now();
+
+      Query query = _examsCollection
+          .where('status', isEqualTo: 'Active')
+          .where('studentIds', arrayContains: studentId)
+          .orderBy('examDateTime');
+
+      QuerySnapshot snapshot = await query.get();
+
+      return snapshot.docs.where((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+
+        // Parse examDateTime and endTime
+        DateTime examDate = (data['examDateTime'] as Timestamp).toDate();
+        String endTimeStr = data['endTime']; // e.g., "16:00"
+        List<String> parts = endTimeStr.split(':');
+
+        DateTime examEndDateTime = DateTime(
+          examDate.year,
+          examDate.month,
+          examDate.day,
+          int.parse(parts[0]),
+          int.parse(parts[1]),
+        );
+
+        // Return only if the exam hasn't finished
+        return examEndDateTime.isAfter(now);
+      }).map((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+        data['id'] = doc.id;
+        return data;
+      }).toList();
+    } catch (e) {
+      print("Error fetching not finished exams: $e");
+      throw e;
+    }
+  }
+
   // Add this function to your ExamFirebaseService class
   Future<Map<String, dynamic>> getExamWithQuestions(String examId) async {
     try {

@@ -1,4 +1,6 @@
 import 'package:app1/data/exam.dart';
+import 'package:app1/data/student.dart';
+import 'package:app1/data/user.dart';
 import 'package:app1/services/auth_services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -6,7 +8,7 @@ import 'package:speech_to_text/speech_recognition_result.dart';
 import '../../services/voice_recongintion_service.dart';
 import '../../services/text_to_speech_service.dart';
 import 'package:flutter_timer_countdown/flutter_timer_countdown.dart';
-import 'questions.dart';
+import 'questions2.dart';
 
 class StudentHome extends StatefulWidget {
   StudentHome({Key? key}) : super(key: key);
@@ -18,39 +20,72 @@ class StudentHome extends StatefulWidget {
 class _StudentHomeState extends State<StudentHome> {
   final SpeechRecognitionService _speechService = SpeechRecognitionService();
   final TextToSpeechHelper ttsHelper = TextToSpeechHelper();
-  final ExamFirebaseService _examService = ExamFirebaseService(); // Add this
-  bool _isFirstInit = true;
+  final ExamFirebaseService _examService = ExamFirebaseService();
 
   List<Map<String, dynamic>> upcomingExams = [];
+  String studentId = '';
+  String username = '';
 
   String _lastWords = '';
   bool _isInitialized = false;
   bool isStartExam = false;
+  bool _isLoading = true;
+  bool _disposed = false; // Flag to track if widget is disposed
 
   @override
   void initState() {
     super.initState();
+    _initializeData();
 
     _initSpeak();
-
     _initSpeechAndStart();
-    _fetchUpcomingExams();
   }
 
+  @override
   void dispose() {
+    _disposed = true; // Set flag to indicate widget is disposed
     _speechService.stopListening();
+    ttsHelper.stop(); // Ensure TTS is stopped
     super.dispose();
+  }
+
+  // Safe setState that checks if widget is still mounted
+  void _safeSetState(VoidCallback fn) {
+    if (mounted && !_disposed) {
+      setState(fn);
+    }
+  }
+
+  Future<void> _getStudentId() async {
+    String? id = await Student().getCurrentStudentId();
+    String? name = await UserL().getCurrentUserName();
+    if (id != null && mounted && !_disposed) {
+      setState(() {
+        studentId = id;
+        username = name ?? '';
+      });
+    }
+  }
+
+  Future<void> _initializeData() async {
+    await _getStudentId();
+    if (mounted && !_disposed) {
+      await _fetchUpcomingExams();
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
 
   Future<void> _fetchUpcomingExams() async {
     try {
-      // Replace 'currentStudentId' with the actual student ID
-      //final exams = await _examService.getUpcomingExams(studentId: 'currentStudentId');
-      final exams = await _examService.getUpcomingExams();
+      final exams =
+          await _examService.getNotFinishedExams(studentId: studentId);
+
+      if (!mounted || _disposed) return;
 
       setState(() {
         upcomingExams = exams.map((exam) {
-          // Convert Firestore data to your expected format
           return {
             'id': exam['id'],
             'name': exam['name'],
@@ -58,14 +93,12 @@ class _StudentHomeState extends State<StudentHome> {
             'startTime': exam['startTime'],
             'endTime': exam['endTime'],
             'examDateTime': exam['examDateTime'],
-
-            // Add any other fields you need
+            'guidelines': exam['guidelines'],
           };
         }).toList();
       });
     } catch (e) {
       print('Error fetching exams: $e');
-      // Optionally show an error to the user
     }
   }
 
@@ -76,15 +109,11 @@ class _StudentHomeState extends State<StudentHome> {
 
   DateTime convertFirebaseTimestampAndTimeString(
       Timestamp firebaseTimestamp, String timeString) {
-    // Convert Firebase Timestamp to DateTime
     DateTime date = firebaseTimestamp.toDate();
-
-    // Parse the time string
     List<String> timeParts = timeString.split(":");
     int hours = int.parse(timeParts[0]);
     int minutes = int.parse(timeParts[1]);
 
-    // Create a new DateTime with the date from Firebase and time from string
     return DateTime(
       date.year,
       date.month,
@@ -94,42 +123,46 @@ class _StudentHomeState extends State<StudentHome> {
     );
   }
 
-  void _initSpeak() async {
+  Future<void> _initSpeak() async {
     await ttsHelper.initTTS(
         language: "en-US", rate: 0.5, pitch: 1.0, volume: 1.0);
-    await ttsHelper.speak(
-        "Hello, welcome to the Exam App. Your current exam is start at 9 am. Say Start Exam to Start the Exam");
-    //await ttsHelper.stop();
+    if (mounted && !_disposed) {
+      await ttsHelper.speak(
+          "Hello, welcome to the Exam App. Your current exam is start at 9 am. Say Start Exam to Start the Exam");
+    }
   }
 
-  void _stopSpeak() async {
-    await ttsHelper.stop();
-  }
-
-  void _initSpeechAndStart() async {
+  Future<void> _initSpeechAndStart() async {
     await _speechService.initSpeech();
-    setState(() {
+    if (!mounted || _disposed) return;
+
+    _safeSetState(() {
       _isInitialized = true;
     });
-    // Start listening automatically
+
     _startListening();
   }
 
   void _startListening() async {
-    if (!mounted) return;
-    await _speechService.startListening(onResult: _processResult);
-    setState(() {});
+    if (!mounted || _disposed) return;
 
-    // Set up a timer to check if listening has stopped
+    await _speechService.startListening(onResult: _processResult);
+    if (mounted && !_disposed) {
+      setState(() {});
+    }
+
+    // Safely schedule the check
     Future.delayed(Duration(seconds: 5), () {
-      if (mounted) {
+      if (mounted && !_disposed) {
         _speechService.checkAndRestartListening(_startListening);
       }
     });
   }
 
   void _processResult(SpeechRecognitionResult result) {
-    setState(() {
+    if (!mounted || _disposed) return;
+
+    _safeSetState(() {
       _lastWords = result.recognizedWords;
 
       if (_lastWords.toLowerCase().contains('start exam')) {
@@ -140,6 +173,8 @@ class _StudentHomeState extends State<StudentHome> {
   }
 
   void _navigateToHomePage() {
+    if (!mounted || _disposed) return;
+
     _speechService.stopListening();
     if (upcomingExams.isNotEmpty) {
       Navigator.pushReplacement(
@@ -147,44 +182,8 @@ class _StudentHomeState extends State<StudentHome> {
         MaterialPageRoute(
             builder: (context) => Qesutions(examData: upcomingExams[0])),
       );
-    } else {
-      // If no exams available, navigate without an ID
-      /*Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (context) => Qesutions()),
-    );*/
     }
   }
-
-  final DateTime startTime = DateTime(
-    DateTime.now().year,
-    DateTime.now().month,
-    DateTime.now().day,
-    20,
-    22,
-    30,
-  );
-  /*final List<Map<String, dynamic>> upcomingExams = [
-    {
-      'name': 'SINHALA LITERATURE PART II - [Y152-SL-9292]',
-      'date': '2023-11-15',
-      'startTime': '09:00',
-      'endTime': '12:00',
-    },
-    {
-      'name': 'MATHEMATICS PART I - [M101-MT-1254]',
-      'date': '2023-11-17',
-      'startTime': '10:00',
-      'endTime': '13:00',
-    },
-    {
-      'name': 'PHYSICS THEORY - [P203-PH-3840]',
-      'date': '2023-11-20',
-      'startTime': '14:00',
-      'endTime': '17:00',
-    },
-  ];
-*/
 
   final List<Map<String, dynamic>> practiceSessions = [
     {
@@ -221,6 +220,9 @@ class _StudentHomeState extends State<StudentHome> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Center(child: CircularProgressIndicator());
+    }
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -228,21 +230,27 @@ class _StudentHomeState extends State<StudentHome> {
         elevation: 4,
         leading: Padding(
           padding: EdgeInsets.only(left: 10),
-          /*child: Image.network(
-            "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTEDHJcTUiAddWFZ53pMbbKxp9hIZW4hAAnHg&s",
-            fit: BoxFit.fitWidth,
-          ),*/
         ),
         title: Row(
           children: [
             const SizedBox(width: 8),
-            const Text(
-              'EXAMAPP',
-              style: TextStyle(
-                color: Colors.black,
-                fontWeight: FontWeight.bold,
-                fontFamily: 'sans-serif',
-              ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.start,
+              children: [
+                Text(
+                  studentId,
+                  style: TextStyle(
+                    color: Colors.black,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: 'sans-serif',
+                  ),
+                ),
+                Text(
+                  username,
+                  style: TextStyle(fontSize: 16.0),
+                ),
+              ],
             ),
           ],
         ),
@@ -250,7 +258,6 @@ class _StudentHomeState extends State<StudentHome> {
           IconButton(
             icon: Icon(Icons.logout, size: 30),
             onPressed: () async {
-              // Handle profile button tap
               await AuthService().signout(context: context);
             },
             color: Colors.blueAccent,
@@ -274,13 +281,15 @@ class _StudentHomeState extends State<StudentHome> {
             const SizedBox(height: 12),
             SizedBox(
               height: 250,
-              child: PageView.builder(
-                controller: PageController(viewportFraction: 0.97),
-                itemCount: upcomingExams.length,
-                itemBuilder: (context, index) {
-                  return _buildExamCard(upcomingExams[index]);
-                },
-              ),
+              child: upcomingExams.isEmpty
+                  ? Center(child: Text('No upcoming exams'))
+                  : PageView.builder(
+                      controller: PageController(viewportFraction: 0.97),
+                      itemCount: upcomingExams.length,
+                      itemBuilder: (context, index) {
+                        return _buildExamCard(upcomingExams[index]);
+                      },
+                    ),
             ),
             const SizedBox(height: 24),
 
@@ -423,10 +432,6 @@ class _StudentHomeState extends State<StudentHome> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                /*const Text(
-                  'Exam starts in 00:50s',
-                  style: TextStyle(fontWeight: FontWeight.w500),
-                ),*/
                 Column(
                   children: [
                     Text(
@@ -448,13 +453,12 @@ class _StudentHomeState extends State<StudentHome> {
                         endTime: convertFirebaseTimestampAndTimeString(
                             exam['examDateTime'], exam['startTime']),
                         timeTextStyle: TextStyle(
-                          fontSize: 16, // Adjust size
+                          fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: Colors.red, // Change text color
+                          color: Colors.red,
                         ),
                         descriptionTextStyle: TextStyle(
-                          // Hides labels by setting empty text
-                          fontSize: 0, // Makes labels disappear
+                          fontSize: 0,
                           color: Colors.transparent,
                           fontFamily: 'sans-serif',
                         ),
@@ -464,15 +468,16 @@ class _StudentHomeState extends State<StudentHome> {
                           fontFamily: 'sans-serif',
                         ),
                         onEnd: () {
-                          if (mounted) {
-                            // Delay the navigation slightly to ensure the page is loaded
+                          if (mounted && !_disposed) {
                             Future.delayed(Duration(milliseconds: 100), () {
-                              Navigator.pushReplacement(
-                                context,
-                                MaterialPageRoute(
-                                    builder: (context) =>
-                                        Qesutions(examData: exam)),
-                              );
+                              if (mounted && !_disposed) {
+                                Navigator.pushReplacement(
+                                  context,
+                                  MaterialPageRoute(
+                                      builder: (context) =>
+                                          Qesutions(examData: exam)),
+                                );
+                              }
                             });
                           }
                         },
@@ -482,11 +487,12 @@ class _StudentHomeState extends State<StudentHome> {
                 ),
                 ElevatedButton(
                   onPressed: () {
-                    print(exam['id']);
-                    Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (context) => Qesutions(examData: exam)));
+                    if (mounted && !_disposed) {
+                      Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) => Qesutions(examData: exam)));
+                    }
                   },
                   style: ElevatedButton.styleFrom(
                     shape: const CircleBorder(),
@@ -543,9 +549,11 @@ class _StudentHomeState extends State<StudentHome> {
           // Question types
           GestureDetector(
             onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Short Questions selected')),
-              );
+              if (mounted && !_disposed) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Short Questions selected')),
+                );
+              }
             },
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -572,9 +580,12 @@ class _StudentHomeState extends State<StudentHome> {
           const SizedBox(height: 8),
           GestureDetector(
             onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Structured Questions selected')),
-              );
+              if (mounted && !_disposed) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                      content: Text('Structured Questions selected')),
+                );
+              }
             },
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -601,9 +612,11 @@ class _StudentHomeState extends State<StudentHome> {
           const SizedBox(height: 8),
           GestureDetector(
             onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Essay Questions selected')),
-              );
+              if (mounted && !_disposed) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Essay Questions selected')),
+                );
+              }
             },
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -644,13 +657,7 @@ class _StudentHomeState extends State<StudentHome> {
           Center(
             child: ElevatedButton(
               onPressed: () {
-                // Navigate to the practice screen
-                /*Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const PlaceholderPracticeScreen(),
-                  ),
-                );*/
+                // Navigation logic here
               },
               style: ElevatedButton.styleFrom(
                 shape: const CircleBorder(),
@@ -677,10 +684,10 @@ class _StudentHomeState extends State<StudentHome> {
       padding: const EdgeInsets.only(bottom: 10.0),
       child: InkWell(
         onTap: () {
-          // Simulate voice command recognition
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('Voice command: $command')));
+          if (mounted && !_disposed) {
+            ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Voice command: $command')));
+          }
         },
         child: Row(
           children: [

@@ -253,27 +253,6 @@ class _StudentFormScreenState extends State<StudentFormScreen> {
     }
   }
 
-  /*Future<bool> sendEmail(dynamic templateParams) async {
-    try {
-      await emailjs.send(
-        'service_1wp8wkj',
-        'template_f1ghq3i',
-        templateParams,
-        const emailjs.Options(
-          publicKey: 'o2LIoEIuHTqkuhDVM',
-        ),
-      );
-      print('SUCCESS!');
-      return true;
-    } catch (error) {
-      if (error is emailjs.EmailJSResponseStatus) {
-        print('ERROR... ${error.status}: ${error.text}');
-      }
-      print(error.toString());
-      return false;
-    }
-  }*/
-
   Future<bool> sendEmailDirectly(String email, String password) async {
     const serviceId = 'service_1wp8wkj';
     const templateId = 'template_2lmitku';

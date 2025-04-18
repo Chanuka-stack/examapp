@@ -1,6 +1,6 @@
 import 'package:app1/data/exam.dart';
 import 'package:app1/pages/exam_pages/exams.dart';
-import 'package:app1/pages/student_pages/sudent_home.dart';
+import 'package:app1/pages/student_pages/sudent_home2.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';

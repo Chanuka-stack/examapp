@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:app1/data/user.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class Student {
   // Create a new student document in Firestore
@@ -152,6 +153,26 @@ class Student {
     } catch (e) {
       print("Error fetching student IDs: $e");
       return [];
+    }
+  }
+
+  Future<String> getCurrentStudentId() async {
+    try {
+      String uid = FirebaseAuth.instance.currentUser!.uid;
+      DocumentSnapshot doc = await FirebaseFirestore.instance
+          .collection('students')
+          .doc(uid)
+          .get();
+
+      if (doc.exists) {
+        return doc.get('studentId') as String;
+      } else {
+        print("No stu found with this UID.");
+        return 'null';
+      }
+    } catch (e) {
+      print("Error fetching isLogin: $e");
+      return 'null';
     }
   }
 }
