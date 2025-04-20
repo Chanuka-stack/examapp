@@ -1,4 +1,4 @@
-import 'package:app1/data/exam.dart';
+/*import 'package:app1/data/exam.dart';
 import 'package:app1/pages/student_pages/sudent_home2.dart';
 import 'package:app1/services/text_to_speech_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -923,3 +923,4 @@ class _QesutionsState extends State<Qesutions> {
     );
   }
 }
+*/

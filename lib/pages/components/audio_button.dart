@@ -8,8 +8,26 @@ import 'package:permission_handler/permission_handler.dart';
 
 class AudioRecordButton extends StatefulWidget {
   final Function(String)? onAudioSaved;
+  final Function(String)? onAudioDeleted;
+  final String?
+      questionIdentifier; // To identify which question this belongs to
 
-  const AudioRecordButton({Key? key, this.onAudioSaved}) : super(key: key);
+  //19-4
+  final String
+      questionId; // To identify which question this recording belongs to
+  final Function(String, String)?
+      onNewRecording; // Callback when a new recording is made
+
+  const AudioRecordButton({
+    Key? key,
+    //19-4
+    required this.questionId,
+    this.onNewRecording,
+    //19-4//
+    this.onAudioSaved,
+    this.onAudioDeleted,
+    this.questionIdentifier,
+  }) : super(key: key);
 
   @override
   _AudioRecordButtonState createState() => _AudioRecordButtonState();
@@ -26,6 +44,8 @@ class _AudioRecordButtonState extends State<AudioRecordButton> {
   StreamSubscription<PlayerState>? _playerStateSubscription;
   StreamSubscription<Duration>? _positionSubscription;
   StreamSubscription<Duration>? _durationSubscription;
+  Timer? _recordingTimer;
+  Duration _recordingDuration = Duration.zero;
 
   @override
   void initState() {
@@ -60,13 +80,30 @@ class _AudioRecordButtonState extends State<AudioRecordButton> {
   Future<void> startRecording() async {
     if (await Permission.microphone.request().isGranted) {
       final directory = await getApplicationDocumentsDirectory();
-      final path =
-          '${directory.path}/recorded_audio_${DateTime.now().millisecondsSinceEpoch}.m4a';
+
+      // Create filename with question identifier if provided
+      String fileName =
+          'recorded_audio_${DateTime.now().millisecondsSinceEpoch}';
+      if (widget.questionIdentifier != null) {
+        fileName = '${widget.questionIdentifier}_$fileName';
+      }
+
+      final path = '${directory.path}/$fileName.m4a';
 
       await _audioRecorder.start(const RecordConfig(), path: path);
 
       setState(() {
         _isRecording = true;
+        _recordingDuration = Duration.zero;
+      });
+
+      // Start recording timer
+      _recordingTimer = Timer.periodic(Duration(seconds: 1), (timer) {
+        if (mounted) {
+          setState(() {
+            _recordingDuration = Duration(seconds: timer.tick);
+          });
+        }
       });
     } else {
       debugPrint("Microphone permission not granted");
@@ -74,14 +111,19 @@ class _AudioRecordButtonState extends State<AudioRecordButton> {
   }
 
   Future<void> stopRecording() async {
+    _recordingTimer?.cancel();
     final path = await _audioRecorder.stop();
+
     setState(() {
       _isRecording = false;
       _recordingPath = path;
     });
 
-    if (path != null && widget.onAudioSaved != null) {
-      widget.onAudioSaved!(path);
+    if (path != null) {
+      // Notify parent widget about the new recording
+      if (widget.onNewRecording != null) {
+        widget.onNewRecording!(widget.questionId, path);
+      }
     }
   }
 
@@ -109,6 +151,7 @@ class _AudioRecordButtonState extends State<AudioRecordButton> {
     if (_recordingPath != null) {
       _audioPlayer.stop();
       final file = File(_recordingPath!);
+      String deletedPath = _recordingPath!;
       file.delete().then((_) {
         setState(() {
           _recordingPath = null;
@@ -116,11 +159,14 @@ class _AudioRecordButtonState extends State<AudioRecordButton> {
           _position = Duration.zero;
           _duration = Duration.zero;
         });
+
+        if (widget.onAudioDeleted != null) {
+          widget.onAudioDeleted!(deletedPath);
+        }
       });
     }
   }
 
-  // Updated to format only minutes and seconds
   String _formatDuration(Duration duration) {
     String twoDigits(int n) => n.toString().padLeft(2, '0');
     final minutes = twoDigits(duration.inMinutes);
@@ -130,6 +176,7 @@ class _AudioRecordButtonState extends State<AudioRecordButton> {
 
   @override
   void dispose() {
+    _recordingTimer?.cancel();
     _audioRecorder.dispose();
     _audioPlayer.dispose();
     _playerStateSubscription?.cancel();
@@ -144,7 +191,7 @@ class _AudioRecordButtonState extends State<AudioRecordButton> {
       mainAxisSize: MainAxisSize.min,
       children: [
         if (_recordingPath == null)
-          // Circular recording button similar to image 1
+          // Circular recording button
           Container(
             width: 70,
             height: 70,
@@ -177,7 +224,7 @@ class _AudioRecordButtonState extends State<AudioRecordButton> {
             ),
           )
         else
-          // Audio playback interface similar to image 2
+          // Audio playback interface
           Container(
             padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
             decoration: BoxDecoration(
@@ -232,7 +279,7 @@ class _AudioRecordButtonState extends State<AudioRecordButton> {
                         ),
                       ),
                       const SizedBox(height: 4),
-                      // Audio duration - now in minutes:seconds format
+                      // Audio duration
                       Text(
                         '${_formatDuration(_position)} / ${_formatDuration(_duration)}',
                         style: TextStyle(fontSize: 12, color: Colors.grey[700]),
@@ -254,10 +301,10 @@ class _AudioRecordButtonState extends State<AudioRecordButton> {
             ),
           ),
         if (_isRecording)
-          const Padding(
+          Padding(
             padding: EdgeInsets.only(top: 8.0),
             child: Text(
-              'Recording...',
+              'Recording... ${_formatDuration(_recordingDuration)}',
               style: TextStyle(fontSize: 14, color: Colors.red),
             ),
           ),

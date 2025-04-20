@@ -1,4 +1,7 @@
-/*import 'package:app1/data/exam.dart';
+import 'dart:io';
+
+import 'package:app1/data/exam.dart';
+import 'package:app1/data/student.dart';
 import 'package:app1/pages/student_pages/sudent_home2.dart';
 import 'package:app1/services/text_to_speech_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -24,10 +27,13 @@ class _QesutionsState extends State<Qesutions> {
   final TextToSpeechHelper _ttsHelper = TextToSpeechHelper();
   final SpeechRecognitionService _speechService = SpeechRecognitionService();
   final ExamFirebaseService _examService = ExamFirebaseService();
+  final TextEditingController _answerController = TextEditingController();
 
   bool _isInitialized = false;
   bool _isDisposed = false;
   String _lastWords = '';
+  bool _isListening = false;
+  bool _isSubmitting = false;
 
   ExamState _currentState = ExamState.ready;
 
@@ -37,6 +43,10 @@ class _QesutionsState extends State<Qesutions> {
 
   // Question list without formal data models
   List<Map<String, dynamic>> sections = [];
+
+  // Map to store answers
+  Map<String, String> _answers = {};
+  final Map<String, String> _audioRecordings = {};
 
   @override
   void initState() {
@@ -48,6 +58,34 @@ class _QesutionsState extends State<Qesutions> {
     _determineExamState();
     await _loadExamQuestions(widget.examData['id']);
     await _initSpeechAndStart();
+
+    // Announce voice commands when app starts
+    Future.delayed(Duration(seconds: 3), () {
+      if (mounted && !_isDisposed) {
+        _speakVoiceCommands();
+      }
+    });
+  }
+
+  void _speakVoiceCommands() {
+    if (_currentState == ExamState.ready) {
+      _speak(
+          'Voice commands available. Say "I am ready for exam" to start the exam.');
+    } else if (_currentState == ExamState.inProgress) {
+      _speak('Voice commands available. Say "next question" to move to the next question. ' +
+          'Say "previous question" to go back. Say "repeat question" to hear the current question again. ' +
+          'Say "submit exam" to finish and submit your exam.');
+    } else if (_currentState == ExamState.ended) {
+      _speak('Exam ended. Say "go to home" to return to the home page.');
+    }
+  }
+
+  void _endExam() {
+    // This method is called in the timer countdown's onEnd but doesn't exist
+    // It should be changed to _submitExam which already exists
+    if (mounted && !_isDisposed) {
+      _submitExam();
+    }
   }
 
   void _determineExamState() {
@@ -118,14 +156,27 @@ class _QesutionsState extends State<Qesutions> {
   void _startListening() async {
     if (!mounted || _isDisposed) return;
 
-    await _speechService.startListening(onResult: _processResult);
+    try {
+      await _speechService.startListening(onResult: _processResult);
+      setState(() {
+        _isListening = true;
+      });
 
-    // Set up a timer to check if listening has stopped
-    Future.delayed(Duration(seconds: 5), () {
-      if (mounted && !_isDisposed) {
-        _speechService.checkAndRestartListening(_startListening);
-      }
-    });
+      // Set up a timer to check if listening has stopped
+      Future.delayed(Duration(seconds: 5), () {
+        if (mounted && !_isDisposed && !_isListening) {
+          _speechService.checkAndRestartListening(_startListening);
+        }
+      });
+    } catch (e) {
+      print('Error starting listening: $e');
+      // Try to restart listening after a delay
+      Future.delayed(Duration(seconds: 2), () {
+        if (mounted && !_isDisposed) {
+          _startListening();
+        }
+      });
+    }
   }
 
   void _processResult(SpeechRecognitionResult result) {
@@ -134,19 +185,167 @@ class _QesutionsState extends State<Qesutions> {
     setState(() {
       _lastWords = result.recognizedWords.toLowerCase();
 
-      if (_currentState == ExamState.inProgress) {
-        if (_lastWords.contains('i am ready for exam')) {
+      // Process voice commands based on the current state
+      if (_currentState == ExamState.ready) {
+        if (_lastWords.contains('i am ready for exam') ||
+            _lastWords.contains('start exam') ||
+            _lastWords.contains('begin exam')) {
           _goToFirstQuestion();
-        } else if (_lastWords.contains('next question')) {
-          _nextQuestion();
-        } else if (_lastWords.contains('previous question')) {
-          _previousQuestion();
+        } else if (_lastWords.contains('help') ||
+            _lastWords.contains('commands')) {
+          _speakVoiceCommands();
         }
-      } else if (_currentState == ExamState.ended &&
-          _lastWords.contains('end exam')) {
-        // Handle end exam command
+      } else if (_currentState == ExamState.inProgress) {
+        if (_lastWords.contains('next question') ||
+            _lastWords.contains('go to next') ||
+            _lastWords.contains('forward')) {
+          _nextQuestion();
+        } else if (_lastWords.contains('previous question') ||
+            _lastWords.contains('go back') ||
+            _lastWords.contains('back')) {
+          _previousQuestion();
+        } else if (_lastWords.contains('repeat question') ||
+            _lastWords.contains('say again') ||
+            _lastWords.contains('what was the question')) {
+          _repeatCurrentQuestion();
+        } else if (_lastWords.contains('submit exam') ||
+            _lastWords.contains('finish exam') ||
+            _lastWords.contains('end exam')) {
+          _submitExam();
+        } else if (_lastWords.contains('which question') ||
+            _lastWords.contains('what question') ||
+            _lastWords.contains('question number') ||
+            _lastWords.contains('where am i')) {
+          _announceCurrentPosition();
+        } else if (_lastWords.contains('help') ||
+            _lastWords.contains('commands')) {
+          _speakVoiceCommands();
+        } else if (_lastWords.contains('start recording') ||
+            _lastWords.contains('record answer')) {
+          _startAnswerRecording();
+        } else if (_lastWords.contains('stop recording')) {
+          _stopAnswerRecording();
+        }
+      } else if (_currentState == ExamState.ended) {
+        if (_lastWords.contains('go to home') ||
+            _lastWords.contains('home page') ||
+            _lastWords.contains('go home')) {
+          _navigateToHome();
+        } else if (_lastWords.contains('help') ||
+            _lastWords.contains('commands')) {
+          _speakVoiceCommands();
+        }
       }
     });
+  }
+
+  void _announceCurrentPosition() {
+    if (sections.isEmpty) return;
+
+    if (_currentQuestionIndex == -1) {
+      _speak('You are at the exam introduction.');
+      return;
+    }
+
+    final sectionTitle = sections[_currentSectionIndex]['title'];
+    final questionNumber = _currentQuestionIndex + 1;
+    final subQuestionNumber = _currentSubQuestionIndex + 1;
+    final totalQuestions = sections[_currentSectionIndex]['questions'].length;
+    final totalSubQuestions = sections[_currentSectionIndex]['questions']
+            [_currentQuestionIndex]['subQuestions']
+        .length;
+
+    _speak(
+        'You are in section $sectionTitle, question $questionNumber out of $totalQuestions, ' +
+            'sub-question $subQuestionNumber out of $totalSubQuestions.');
+  }
+
+  void _repeatCurrentQuestion() {
+    if (sections.isEmpty ||
+        _currentQuestionIndex == -1 ||
+        _currentSectionIndex >= sections.length ||
+        _currentQuestionIndex >=
+            sections[_currentSectionIndex]['questions'].length) {
+      return;
+    }
+
+    final question =
+        sections[_currentSectionIndex]['questions'][_currentQuestionIndex];
+    final subQuestion = question['subQuestions'][_currentSubQuestionIndex];
+
+    _ttsHelper.stop();
+    _speak('Question ${_currentQuestionIndex + 1}: ${question['title']}');
+    Future.delayed(Duration(milliseconds: 2000), () {
+      _speak(
+          'Sub-question ${_currentSubQuestionIndex + 1}: ${subQuestion['text']}. Worth ${subQuestion['marks']} marks.');
+    });
+  }
+
+  // For voice-activated answer recording
+  bool _isRecordingAnswer = false;
+  String _currentRecordedAnswer = '';
+
+  void _startAnswerRecording() {
+    if (!mounted || _isDisposed) return;
+
+    _speak(
+        'Starting to record your answer. Speak clearly. Say "stop recording" when finished.');
+    setState(() {
+      _isRecordingAnswer = true;
+      _currentRecordedAnswer = '';
+    });
+
+    // Stop the regular command listener and start a dedicated answer listener
+    _speechService.stopListening();
+    Future.delayed(Duration(milliseconds: 500), () {
+      _speechService.startListening(onResult: _processAnswerRecording);
+    });
+  }
+
+  void _processAnswerRecording(SpeechRecognitionResult result) {
+    if (!mounted || _isDisposed || !_isRecordingAnswer) return;
+
+    final words = result.recognizedWords.toLowerCase();
+
+    if (words.contains('stop recording')) {
+      _stopAnswerRecording();
+      return;
+    }
+
+    // Append the recognized text to the current answer
+    _currentRecordedAnswer += ' ' + result.recognizedWords;
+
+    // Update the text field
+    _answerController.text = _currentRecordedAnswer.trim();
+
+    // Save the answer
+    _saveCurrentAnswer();
+  }
+
+  void _stopAnswerRecording() {
+    if (!mounted || _isDisposed) return;
+
+    _speak('Recording stopped. Your answer has been saved.');
+    setState(() {
+      _isRecordingAnswer = false;
+    });
+
+    // Stop the answer listener and restart the command listener
+    _speechService.stopListening();
+    Future.delayed(Duration(milliseconds: 500), () {
+      _startListening();
+    });
+  }
+
+  void _saveCurrentAnswer() {
+    if (_currentQuestionIndex == -1 || _currentSubQuestionIndex == -1) return;
+
+    // Create a unique key for this question/subquestion
+    final answerKey =
+        '${_currentSectionIndex}_${_currentQuestionIndex}_${_currentSubQuestionIndex}';
+
+    // Save the answer
+    _answers[answerKey] = _answerController.text;
   }
 
   @override
@@ -154,11 +353,15 @@ class _QesutionsState extends State<Qesutions> {
     _isDisposed = true;
     _speechService.stopListening();
     _ttsHelper.stop();
+    _answerController.dispose();
     super.dispose();
   }
 
   void _nextQuestion() {
     if (!mounted || _isDisposed) return;
+
+    // Save the current answer before moving
+    _saveCurrentAnswer();
 
     _ttsHelper.stop();
 
@@ -192,7 +395,7 @@ class _QesutionsState extends State<Qesutions> {
               _currentQuestionIndex = 0;
             } else {
               // End exam if all sections are completed
-              _endExam();
+              _submitExam();
               return;
             }
           }
@@ -201,11 +404,17 @@ class _QesutionsState extends State<Qesutions> {
         // First question
         _goToFirstQuestion();
       }
+
+      // Load the answer for the new question if it exists
+      _loadCurrentAnswer();
     });
   }
 
   void _previousQuestion() {
     if (!mounted || _isDisposed) return;
+
+    // Save the current answer before moving
+    _saveCurrentAnswer();
 
     _ttsHelper.stop();
 
@@ -258,7 +467,24 @@ class _QesutionsState extends State<Qesutions> {
           }
         }
       }
+
+      // Load the answer for the new question if it exists
+      _loadCurrentAnswer();
     });
+  }
+
+  void _loadCurrentAnswer() {
+    if (_currentQuestionIndex == -1 || _currentSubQuestionIndex == -1) {
+      _answerController.text = '';
+      return;
+    }
+
+    // Create a unique key for this question/subquestion
+    final answerKey =
+        '${_currentSectionIndex}_${_currentQuestionIndex}_${_currentSubQuestionIndex}';
+
+    // Load the answer if it exists
+    _answerController.text = _answers[answerKey] ?? '';
   }
 
   void _goToFinalQuestion() {
@@ -284,6 +510,9 @@ class _QesutionsState extends State<Qesutions> {
           _currentSectionIndex = lastSectionIndex;
           _currentQuestionIndex = lastQuestionIndex;
           _currentSubQuestionIndex = lastSubQuestionIndex;
+
+          // Load the answer for this question if it exists
+          _loadCurrentAnswer();
         }
       }
     });
@@ -298,6 +527,14 @@ class _QesutionsState extends State<Qesutions> {
       _currentSectionIndex = 0;
       _currentQuestionIndex = 0;
       _currentSubQuestionIndex = 0;
+
+      // Load the answer for this question if it exists
+      _loadCurrentAnswer();
+    });
+
+    Future.delayed(Duration(milliseconds: 500), () {
+      _announceCurrentPosition();
+      _repeatCurrentQuestion();
     });
   }
 
@@ -307,14 +544,162 @@ class _QesutionsState extends State<Qesutions> {
     setState(() {
       _currentState = ExamState.inProgress;
     });
+
+    Future.delayed(Duration(milliseconds: 500), () {
+      _speakVoiceCommands();
+    });
   }
 
-  void _endExam() {
+  Future<void> _submitExam() async {
+    if (!mounted || _isDisposed || _isSubmitting) return;
+
+    setState(() => _isSubmitting = true);
+    _speak('Submitting your exam. Please wait.');
+
+    try {
+      // 1. Save current answer before submission
+      _saveCurrentAnswer();
+
+      // 2. Get current user ID
+      final studentId = await Student().getCurrentStudentId();
+
+      // 3. Show progress indicator
+      if (mounted) {
+        setState(() {
+          _isSubmitting = true;
+        });
+      }
+
+      // 4. Process all text answers first
+      for (final entry in _answers.entries) {
+        final questionKey = entry.key;
+        final textAnswer = entry.value;
+
+        // Parse question components from key (format: section_question_subquestion)
+        final parts = questionKey.split('_');
+        if (parts.length != 3) continue;
+
+        final sectionIndex = int.parse(parts[0]);
+        final questionIndex = int.parse(parts[1]);
+        final subQuestionIndex = int.parse(parts[2]);
+
+        // Check if there's an audio recording for this question
+        final audioPath = _audioRecordings[questionKey];
+
+        if (audioPath != null) {
+          // If there's audio, save both audio and text together
+          await _examService.saveStudentAudioResponse(
+            examId: widget.examData['id'],
+            studentId: studentId,
+            questionId: questionKey,
+            sectionIndex: sectionIndex,
+            questionIndex: questionIndex,
+            subQuestionIndex: subQuestionIndex,
+            audioFilePath: audioPath,
+            textResponse: textAnswer,
+          );
+        } else {
+          // If no audio, save just the text response
+          await _examService.saveStudentTextResponse(
+            examId: widget.examData['id'],
+            studentId: studentId,
+            questionId: questionKey,
+            sectionIndex: sectionIndex,
+            questionIndex: questionIndex,
+            subQuestionIndex: subQuestionIndex,
+            textResponse: textAnswer,
+          );
+        }
+      }
+
+      // 5. Process any audio recordings that don't have text answers
+      for (final entry in _audioRecordings.entries) {
+        final questionKey = entry.key;
+        final audioPath = entry.value;
+
+        // Skip if we've already processed this as part of a text answer
+        if (_answers.containsKey(questionKey)) continue;
+
+        final parts = questionKey.split('_');
+        if (parts.length != 3) continue;
+
+        final sectionIndex = int.parse(parts[0]);
+        final questionIndex = int.parse(parts[1]);
+        final subQuestionIndex = int.parse(parts[2]);
+
+        // Save audio-only response
+        await _examService.saveStudentAudioResponse(
+          examId: widget.examData['id'],
+          studentId: studentId,
+          questionId: questionKey,
+          sectionIndex: sectionIndex,
+          questionIndex: questionIndex,
+          subQuestionIndex: subQuestionIndex,
+          audioFilePath: audioPath,
+          textResponse: '', // No text for this answer
+        );
+      }
+
+      // 6. Mark exam as submitted once all answers are processed
+      await _examService.submitExamResponses(
+        examId: widget.examData['id'],
+        studentId: studentId,
+      );
+
+      // 7. Clean up local audio files
+      for (final filePath in _audioRecordings.values) {
+        try {
+          await File(filePath).delete();
+        } catch (e) {
+          print('Error deleting local file: $e');
+          // Continue with other files even if one fails
+        }
+      }
+
+      // 8. Update UI state
+      if (mounted && !_isDisposed) {
+        setState(() {
+          _currentState = ExamState.ended;
+          _isSubmitting = false;
+        });
+        _speak('Exam submitted successfully!');
+      }
+    } catch (e) {
+      print('Error submitting exam: $e');
+
+      if (mounted && !_isDisposed) {
+        setState(() {
+          _isSubmitting = false;
+        });
+        _speak('Submission failed. Please try again.');
+
+        // Show error dialog
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text('Submission Error'),
+            content: Text(
+                'There was a problem submitting your exam. Please try again or contact support.'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text('OK'),
+              ),
+            ],
+          ),
+        );
+      }
+    }
+  }
+
+  void _navigateToHome() {
     if (!mounted || _isDisposed) return;
 
-    setState(() {
-      _currentState = ExamState.ended;
-    });
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (context) => StudentHome()),
+      (route) => false, // This removes all previous routes
+    );
   }
 
   Future<void> _speakText(String text) async {
@@ -330,10 +715,38 @@ class _QesutionsState extends State<Qesutions> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(body: SafeArea(child: _getScreenForState()));
+    final screen = _getScreenForState();
+
+    // Check if the screen needs scrolling
+    // (Ready screen shouldn't be scrollable due to Spacer usage)
+    final isReadyScreen = _currentState == ExamState.ready;
+    final isEndedScreen = _currentState == ExamState.ended;
+
+    return Scaffold(
+      body: SafeArea(
+        child: isReadyScreen || isEndedScreen
+            ? screen // No scroll view for screens with Spacer
+            : SingleChildScrollView(child: screen),
+      ),
+    );
   }
 
   Widget _getScreenForState() {
+    // Show loading indicator while submitting
+    if (_isSubmitting) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('Submitting your exam...',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          ],
+        ),
+      );
+    }
+
     // If exam is manually ended or time is up, show ended screen
     if (_currentState == ExamState.ended) {
       return _buildExamEndedScreen();
@@ -452,6 +865,31 @@ class _QesutionsState extends State<Qesutions> {
                     },
                   ),
                 ),
+                SizedBox(height: 16),
+                Text(
+                  'Say "I am ready for exam" to begin',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: 'sans-serif',
+                  ),
+                ),
+                SizedBox(height: 24),
+                Text(
+                  'Voice Commands:',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: 'sans-serif',
+                  ),
+                ),
+                Text(
+                  '"I am ready for exam" - Start the exam\n"Help" - Hear available commands',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontFamily: 'sans-serif',
+                  ),
+                ),
               ],
             ),
           ),
@@ -535,7 +973,7 @@ class _QesutionsState extends State<Qesutions> {
                     widget.examData['endTime']),
                 onEnd: () {
                   if (mounted && !_isDisposed) {
-                    _endExam();
+                    _submitExam();
                   }
                 },
               ),
@@ -573,7 +1011,30 @@ class _QesutionsState extends State<Qesutions> {
               fontFamily: 'sans-serif',
             ),
           ),
-          SizedBox(height: 48),
+          SizedBox(height: 16),
+          Text(
+            'Voice Commands:',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              fontFamily: 'sans-serif',
+            ),
+          ),
+          Text(
+            '"Next question" - Move to the next question\n' +
+                '"Previous question" - Go back to the previous question\n' +
+                '"Repeat question" - Hear the current question again\n' +
+                '"Which question" - Hear your current position\n' +
+                '"Start recording" - Begin recording your answer\n' +
+                '"Stop recording" - Finish recording your answer\n' +
+                '"Submit exam" - Finish and submit the exam\n' +
+                '"Help" - Hear available commands',
+            style: TextStyle(
+              fontSize: 14,
+              fontFamily: 'sans-serif',
+            ),
+          ),
+          SizedBox(height: 24),
           Center(
             child: ElevatedButton(
               onPressed: () {
@@ -627,6 +1088,13 @@ class _QesutionsState extends State<Qesutions> {
       Future.delayed(
           Duration(milliseconds: _currentSubQuestionIndex == 0 ? 2000 : 0), () {
         _speak(subQuestion['text']);
+        _speak('Worth ${subQuestion["marks"]} marks.');
+
+        // Announce recording instructions
+        Future.delayed(Duration(milliseconds: 1500), () {
+          _speak(
+              'Say "start recording" to begin your answer, or use the text field or audio button.');
+        });
       });
     });
 
@@ -702,7 +1170,7 @@ class _QesutionsState extends State<Qesutions> {
                     widget.examData['endTime']),
                 onEnd: () {
                   if (mounted && !_isDisposed) {
-                    _endExam();
+                    _submitExam();
                   }
                 },
               ),
@@ -758,8 +1226,64 @@ class _QesutionsState extends State<Qesutions> {
             ),
           ),
           SizedBox(height: 25),
-          Center(child: AudioRecordButton()),
-          SizedBox(height: 25),
+          Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // Audio Record Button
+              GestureDetector(
+                onTap: () {
+                  // Check if we're currently recording
+                  if (_isRecordingAnswer) {
+                    _stopAnswerRecording();
+                  } else {
+                    _startAnswerRecording();
+                  }
+                },
+                child: AudioRecordButton(
+                  questionId:
+                      '${_currentSectionIndex}_${_currentQuestionIndex}_${_currentSubQuestionIndex}', // Pass question ID
+                  onNewRecording: (questionId, filePath) {
+                    _audioRecordings[questionId] = filePath; // Store recording
+                  },
+                ),
+              ),
+              SizedBox(width: 16),
+              // Voice Command Status Indicator
+            ],
+          ),
+          SizedBox(height: 16),
+          // Recording status indicator, only shown when actively recording an answer
+          if (_isRecordingAnswer)
+            Container(
+              padding: EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.fiber_manual_record, color: Colors.red),
+                  SizedBox(width: 8),
+                  Text(
+                    "Recording Answer...",
+                    style: TextStyle(
+                      color: Colors.red,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  SizedBox(width: 8),
+                  Text(
+                    "Say 'stop recording' when finished",
+                    style: TextStyle(
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          SizedBox(height: 16),
           Container(
             height: 200,
             padding: EdgeInsets.all(8),
@@ -768,15 +1292,49 @@ class _QesutionsState extends State<Qesutions> {
               borderRadius: BorderRadius.circular(8),
             ),
             child: TextField(
+              controller: _answerController,
               decoration: InputDecoration(
                 border: InputBorder.none,
-                hintText: "Enter your text...",
+                hintText:
+                    "Enter your text or say 'start recording' to answer by voice...",
               ),
               keyboardType: TextInputType.multiline,
               maxLines: null,
               expands: true,
+              onChanged: (value) {
+                // Update the answers map whenever the text changes manually
+                _saveCurrentAnswer();
+              },
             ),
-          )
+          ),
+          SizedBox(height: 16),
+          // Voice command hints at the bottom
+          Container(
+            padding: EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.grey[200],
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Voice Commands:',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  '"Next question" - Move to next\n' +
+                      '"Previous question" - Go back\n' +
+                      '"Repeat question" - Hear again\n' +
+                      '"Which question" - Current position\n' +
+                      '"Submit exam" - Finish exam',
+                  style: TextStyle(fontSize: 12),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -853,7 +1411,7 @@ class _QesutionsState extends State<Qesutions> {
                   Duration(
                     hours: 00,
                     minutes: 00,
-                    seconds: 34,
+                    seconds: 30,
                   ),
                 ),
                 onEnd: () {
@@ -882,4 +1440,3 @@ class _QesutionsState extends State<Qesutions> {
     );
   }
 }
-*/
