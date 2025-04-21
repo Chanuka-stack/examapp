@@ -30,10 +30,10 @@ class AudioRecordButton extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  _AudioRecordButtonState createState() => _AudioRecordButtonState();
+  AudioRecordButtonState createState() => AudioRecordButtonState();
 }
 
-class _AudioRecordButtonState extends State<AudioRecordButton> {
+class AudioRecordButtonState extends State<AudioRecordButton> {
   final AudioRecorder _audioRecorder = AudioRecorder();
   final AudioPlayer _audioPlayer = AudioPlayer();
   bool _isRecording = false;
@@ -173,6 +173,17 @@ class _AudioRecordButtonState extends State<AudioRecordButton> {
     final seconds = twoDigits(duration.inSeconds.remainder(60));
     return '$minutes:$seconds';
   }
+
+  Future<String?> stopAndSaveRecording() async {
+    if (_isRecording) {
+      await stopRecording(); // This sets _recordingPath internally
+      return _recordingPath;
+    }
+    return null;
+  }
+
+// Public getter to check recording state
+  bool get isRecording => _isRecording;
 
   @override
   void dispose() {
