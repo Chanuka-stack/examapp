@@ -469,14 +469,30 @@ class _StudentHomeState extends State<StudentHome> {
                         ),
                         onEnd: () {
                           if (mounted && !_disposed) {
-                            Future.delayed(Duration(milliseconds: 100), () {
+                            Future.delayed(Duration(milliseconds: 100),
+                                () async {
                               if (mounted && !_disposed) {
-                                Navigator.pushReplacement(
+                                /*Navigator.pushReplacement(
                                   context,
                                   MaterialPageRoute(
                                       builder: (context) =>
                                           Qesutions(examData: exam)),
+                                );*/
+                                final result = await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        Qesutions(examData: exam),
+                                  ),
                                 );
+
+                                if (result == true && mounted) {
+                                  // Exam was submitted, mark it as completed
+                                  setState(() {
+                                    upcomingExams.removeWhere(
+                                        (e) => e['id'] == exam['id']);
+                                  });
+                                }
                               }
                             });
                           }

@@ -364,7 +364,11 @@ class _QesutionsState extends State<Qesutions> {
     _saveCurrentAnswer();
 
     _ttsHelper.stop();
-
+    if (_isLastQuestion()) {
+      // Show confirmation dialog instead of auto-submitting
+      _showSubmitConfirmationDialog();
+      return;
+    }
     setState(() {
       // Check if we have sections loaded
       if (sections.isEmpty || _currentSectionIndex >= sections.length) {
@@ -408,6 +412,55 @@ class _QesutionsState extends State<Qesutions> {
       // Load the answer for the new question if it exists
       _loadCurrentAnswer();
     });
+  }
+
+  bool _isLastQuestion() {
+    if (sections.isEmpty) return false;
+
+    final lastSectionIndex = sections.length - 1;
+    if (_currentSectionIndex < lastSectionIndex) return false;
+
+    final lastQuestionIndex =
+        sections[lastSectionIndex]['questions'].length - 1;
+    if (_currentQuestionIndex < lastQuestionIndex) return false;
+
+    final lastSubQuestionIndex = sections[lastSectionIndex]['questions']
+                [lastQuestionIndex]['subQuestions']
+            .length -
+        1;
+    return _currentSubQuestionIndex >= lastSubQuestionIndex;
+  }
+
+// Show confirmation dialog for exam submission
+  void _showSubmitConfirmationDialog() {
+    _speak('You have reached the end of the exam. Do you want to submit?');
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Submit Exam?'),
+        content: Text(
+            'You have reached the end of the exam. Do you want to submit your answers now?'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context); // Close dialog
+            },
+            child: Text('No, Review Answers'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context); // Close dialog
+              _submitExam();
+            },
+            child: Text('Yes, Submit Exam'),
+            style: TextButton.styleFrom(
+              backgroundColor: Colors.deepPurple,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   void _previousQuestion() {
@@ -1170,6 +1223,17 @@ class _QesutionsState extends State<Qesutions> {
                     widget.examData['endTime']),
                 onEnd: () {
                   if (mounted && !_isDisposed) {
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content:
+                            Text('Time expired - finalizing recording...')));
+
+                    // Handle any ongoing recording
+                    if (_isRecordingAnswer) {
+                      _stopAnswerRecording();
+                      Future.delayed(
+                          Duration(seconds: 1)); // Ensure save completes
+                    }
+
                     _submitExam();
                   }
                 },
@@ -1226,31 +1290,32 @@ class _QesutionsState extends State<Qesutions> {
             ),
           ),
           SizedBox(height: 25),
-          Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              // Audio Record Button
-              GestureDetector(
-                onTap: () {
-                  // Check if we're currently recording
-                  if (_isRecordingAnswer) {
-                    _stopAnswerRecording();
-                  } else {
-                    _startAnswerRecording();
-                  }
-                },
-                child: AudioRecordButton(
-                  questionId:
-                      '${_currentSectionIndex}_${_currentQuestionIndex}_${_currentSubQuestionIndex}', // Pass question ID
-                  onNewRecording: (questionId, filePath) {
-                    _audioRecordings[questionId] = filePath; // Store recording
+          Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // Audio Record Button
+                GestureDetector(
+                  onTap: () {
+                    if (_isRecordingAnswer) {
+                      _stopAnswerRecording();
+                    } else {
+                      _startAnswerRecording();
+                    }
                   },
+                  child: AudioRecordButton(
+                    questionId:
+                        '${_currentSectionIndex}_${_currentQuestionIndex}_${_currentSubQuestionIndex}',
+                    onNewRecording: (questionId, filePath) {
+                      _audioRecordings[questionId] = filePath;
+                    },
+                  ),
                 ),
-              ),
-              SizedBox(width: 16),
-              // Voice Command Status Indicator
-            ],
+                SizedBox(height: 16),
+                // Voice Command Status Indicator can be added here if needed
+              ],
+            ),
           ),
           SizedBox(height: 16),
           // Recording status indicator, only shown when actively recording an answer

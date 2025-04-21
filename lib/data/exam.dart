@@ -407,215 +407,6 @@ class ExamFirebaseService {
   }
 
 //|_|_|_|_|_ AUDIO RECORDING PART _|_|_|_|_|_|
-  /* Future<void> saveStudentAudioResponse({
-    required String examId,
-    required String studentId,
-    required String questionId,
-    required int sectionIndex,
-    required int questionIndex,
-    required int subQuestionIndex,
-    required String audioFilePath,
-    String? textResponse,
-  }) async {
-    try {
-      // Upload audio file to storage first
-      final String fileName = audioFilePath.split('/').last;
-      final String storagePath = 'exam_responses/$examId/$studentId/$fileName';
-
-      final storageRef = _storage.ref().child(storagePath);
-      final uploadTask = await storageRef.putFile(File(audioFilePath));
-      final audioUrl = await uploadTask.ref.getDownloadURL();
-
-      // Create unique ID for this response
-      final String responseId =
-          '$sectionIndex-$questionIndex-$subQuestionIndex';
-
-      // Save response data to Firestore
-      await _examResponsesCollection.doc('$examId-$studentId').set({
-        'examId': examId,
-        'studentId': studentId,
-        'submittedAt': FieldValue.serverTimestamp(),
-        'responses': FieldValue.arrayUnion([
-          {
-            'sectionIndex': sectionIndex,
-            'questionIndex': questionIndex,
-            'subQuestionIndex': subQuestionIndex,
-            'questionId': questionId,
-            'audioUrl': audioUrl,
-            'audioPath': storagePath,
-            'textResponse': textResponse,
-            'responseId': responseId,
-            'timestamp': FieldValue.serverTimestamp(),
-          }
-        ]),
-      }, SetOptions(merge: true));
-    } catch (e) {
-      print("Error saving student audio response: $e");
-      throw e;
-    }
-  }
-
-  // Submit all exam responses (called when exam ends or student submits)
-  Future<void> submitExamResponses({
-    required String examId,
-    required String studentId,
-  }) async {
-    try {
-      // Update status to submitted
-      await _examResponsesCollection.doc('$examId-$studentId').update({
-        'status': 'submitted',
-        'completedAt': FieldValue.serverTimestamp(),
-      });
-    } catch (e) {
-      print("Error submitting exam responses: $e");
-      throw e;
-    }
-  }
-
-  // Delete all audio responses for an exam attempt
-  Future<void> deleteExamAudioResponses({
-    required String examId,
-    required String studentId,
-  }) async {
-    try {
-      // Get the exam response document
-      DocumentSnapshot responseDoc =
-          await _examResponsesCollection.doc('$examId-$studentId').get();
-
-      if (responseDoc.exists) {
-        // Get all response data
-        Map<String, dynamic> data = responseDoc.data() as Map<String, dynamic>;
-        List<dynamic> responses = data['responses'] ?? [];
-
-        // Start a batch operation
-        WriteBatch batch = _firestore.batch();
-
-        // Delete all audio files from storage
-        for (var response in responses) {
-          if (response['audioPath'] != null) {
-            try {
-              await _storage.ref().child(response['audioPath']).delete();
-            } catch (e) {
-              print("Error deleting audio file: $e");
-              // Continue even if one file can't be deleted
-            }
-          }
-        }
-
-        // Delete the responses document
-        batch.delete(_examResponsesCollection.doc('$examId-$studentId'));
-
-        // Commit the batch
-        await batch.commit();
-      }
-    } catch (e) {
-      print("Error deleting exam audio responses: $e");
-      throw e;
-    }
-  }
-
-  // Get all audio responses for a student's exam
-  Future<List<Map<String, dynamic>>> getStudentExamResponses({
-    required String examId,
-    required String studentId,
-  }) async {
-    try {
-      DocumentSnapshot doc =
-          await _examResponsesCollection.doc('$examId-$studentId').get();
-
-      if (doc.exists) {
-        Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-        return List<Map<String, dynamic>>.from(data['responses'] ?? []);
-      }
-
-      return [];
-    } catch (e) {
-      print("Error fetching student exam responses: $e");
-      throw e;
-    }
-  }
-
-  //19-4
-  Future<void> submitExamWithAudio({
-    required String examId,
-    required String studentId,
-    required Map<String, String> answers,
-    required Map<String, String> audioRecordings,
-  }) async {
-    try {
-      // 1. Upload all audio files
-      final audioUrls = <String, String>{};
-
-      for (final entry in audioRecordings.entries) {
-        final questionKey = entry.key;
-        final filePath = entry.value;
-
-        // Parse question components from key (format: section_question_subquestion)
-        final parts = questionKey.split('_');
-        if (parts.length != 3)
-          throw FormatException('Invalid question key format');
-
-        final sectionIndex = int.parse(parts[0]);
-        final questionIndex = int.parse(parts[1]);
-        final subQuestionIndex = int.parse(parts[2]);
-
-        // Use existing method to save each response
-        await saveStudentAudioResponse(
-          examId: examId,
-          studentId: studentId,
-          questionId: questionKey,
-          sectionIndex: sectionIndex,
-          questionIndex: questionIndex,
-          subQuestionIndex: subQuestionIndex,
-          audioFilePath: filePath,
-          textResponse: answers[questionKey],
-        );
-      }
-
-      // 2. Mark exam as submitted
-      await submitExamResponses(
-        examId: examId,
-        studentId: studentId,
-      );
-    } catch (e) {
-      print('Error submitting exam with audio: $e');
-      throw e;
-    }
-  }
-
-  Future<void> uploadExamAudioFiles({
-    required String examId,
-    required String studentId,
-    required Map<String, String> audioRecordings,
-  }) async {
-    try {
-      for (final entry in audioRecordings.entries) {
-        final questionKey = entry.key;
-        final filePath = entry.value;
-
-        final parts = questionKey.split('_');
-        if (parts.length != 3)
-          throw FormatException('Invalid question key format');
-
-        final sectionIndex = int.parse(parts[0]);
-        final questionIndex = int.parse(parts[1]);
-        final subQuestionIndex = int.parse(parts[2]);
-
-        await saveStudentAudioResponse(
-          examId: examId,
-          studentId: studentId,
-          questionId: questionKey,
-          sectionIndex: sectionIndex,
-          questionIndex: questionIndex,
-          subQuestionIndex: subQuestionIndex,
-          audioFilePath: filePath,
-        );
-      }
-    } catch (e) {
-      print('Error uploading exam audio files: $e');
-      throw e;
-    }
-  }*/
 
   Future<void> saveStudentAudioResponse({
     required String examId,
@@ -628,38 +419,30 @@ class ExamFirebaseService {
     required String textResponse,
   }) async {
     try {
-      // 1. Upload the audio file to Firebase Storage
+      String formattedStudentId = studentId.replaceAll('/', '-');
       final File audioFile = File(audioFilePath);
       final fileName =
-          '${examId}_${studentId}_${questionId}_${DateTime.now().millisecondsSinceEpoch}.m4a';
+          '${formattedStudentId}_${questionId}_${DateTime.now().millisecondsSinceEpoch}.m4a';
 
-      // Get a reference to Firebase Storage
-      final storageRef = FirebaseStorage.instance
-          .ref()
-          .child('exam_audio_responses/$fileName');
-
-      // Upload the file
+      // Upload to Storage
+      final storageRef =
+          _storage.ref().child('exam_audio_responses/$examId/$fileName');
       final uploadTask = storageRef.putFile(audioFile);
       final snapshot = await uploadTask.whenComplete(() => null);
-
-      // Get the download URL
       final downloadUrl = await snapshot.ref.getDownloadURL();
 
-      // 2. Save the reference to Firestore along with text response
-      await FirebaseFirestore.instance
-          .collection('exams')
-          .doc(examId)
-          .collection('responses')
-          .doc(studentId)
-          .collection('answers')
-          .doc(questionId)
-          .set({
+      // Save to Firestore using exam_responses collection
+      await _examResponsesCollection.add({
+        'examId': examId,
+        'studentId': studentId,
+        'questionId': questionId,
         'sectionIndex': sectionIndex,
         'questionIndex': questionIndex,
         'subQuestionIndex': subQuestionIndex,
         'textResponse': textResponse,
-        'audioResponse': downloadUrl,
+        'audioUrl': downloadUrl,
         'submittedAt': FieldValue.serverTimestamp(),
+        'responseType': 'audio', // Mark as audio response
       });
     } catch (e) {
       print('Error saving audio response: $e');
@@ -677,20 +460,16 @@ class ExamFirebaseService {
     required String textResponse,
   }) async {
     try {
-      // Save just the text response to Firestore
-      await FirebaseFirestore.instance
-          .collection('exams')
-          .doc(examId)
-          .collection('responses')
-          .doc(studentId)
-          .collection('answers')
-          .doc(questionId)
-          .set({
+      await _examResponsesCollection.add({
+        'examId': examId,
+        'studentId': studentId,
+        'questionId': questionId,
         'sectionIndex': sectionIndex,
         'questionIndex': questionIndex,
         'subQuestionIndex': subQuestionIndex,
         'textResponse': textResponse,
         'submittedAt': FieldValue.serverTimestamp(),
+        'responseType': 'text', // Mark as text response
       });
     } catch (e) {
       print('Error saving text response: $e');
@@ -703,15 +482,26 @@ class ExamFirebaseService {
     required String studentId,
   }) async {
     try {
-      // Mark the overall exam as submitted
-      await FirebaseFirestore.instance
-          .collection('exams')
-          .doc(examId)
-          .collection('submissions')
-          .doc(studentId)
-          .set({
+      // Option 1: Mark in the exam_responses collection
+      await _examResponsesCollection
+          .where('examId', isEqualTo: examId)
+          .where('studentId', isEqualTo: studentId)
+          .get()
+          .then((snapshot) {
+        final batch = _firestore.batch();
+        for (var doc in snapshot.docs) {
+          batch.update(doc.reference, {'status': 'completed'});
+        }
+        return batch.commit();
+      });
+
+      // Option 2: Or create a separate submission record
+      await _examResponsesCollection.add({
+        'examId': examId,
+        'studentId': studentId,
+        'type': 'exam_completion',
         'status': 'completed',
-        'submittedAt': FieldValue.serverTimestamp(),
+        'completedAt': FieldValue.serverTimestamp(),
       });
     } catch (e) {
       print('Error submitting exam: $e');
