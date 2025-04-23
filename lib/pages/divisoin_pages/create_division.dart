@@ -46,7 +46,7 @@ class _DivisionFormScreenState extends State<DivisionFormScreen> {
       //_existingImageUrl = widget.divisionData!['imageUrl'];
     } else {
       // Set default subjects for new division
-      subjects = ["Maths", "Economics"];
+      subjects = [];
     }
   }
 
@@ -270,11 +270,8 @@ class _DivisionFormScreenState extends State<DivisionFormScreen> {
                           );
                         } else {
                           // Create new division
-                          await division.createDivisionWithoutImage(
-                              _nameController.text,
-                              _codeController.text,
-                              subjects,
-                              _selectedImage);
+                          await division.createDivision(_nameController.text,
+                              _codeController.text, subjects, _selectedImage);
 
                           // Success message for creation
                           ScaffoldMessenger.of(context).showSnackBar(

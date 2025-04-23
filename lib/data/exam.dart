@@ -331,7 +331,7 @@ class ExamFirebaseService {
     }
   }
 
-  Future<List<Map<String, dynamic>>> getNotFinishedExams({
+  /*Future<List<Map<String, dynamic>>> getNotFinishedExams({
     required String studentId,
   }) async {
     try {
@@ -367,6 +367,74 @@ class ExamFirebaseService {
         data['id'] = doc.id;
         return data;
       }).toList();
+    } catch (e) {
+      print("Error fetching not finished exams: $e");
+      throw e;
+    }
+  }*/
+
+  Future<List<Map<String, dynamic>>> getNotFinishedExams({
+    required String studentId,
+  }) async {
+    try {
+      DateTime now = DateTime.now();
+
+      Query query = _examsCollection
+          .where('status', isEqualTo: 'Active')
+          .where('studentIds', arrayContains: studentId);
+
+      QuerySnapshot snapshot = await query.get();
+
+      // Process and filter exams
+      List<Map<String, dynamic>> exams = snapshot.docs.map((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+        data['id'] = doc.id;
+        return data;
+      }).toList();
+
+      // Filter and sort exams
+      return exams.where((exam) {
+        // Parse examDateTime and endTime
+        DateTime examDate = (exam['examDateTime'] as Timestamp).toDate();
+        String endTimeStr = exam['endTime']; // e.g., "16:00"
+        List<String> parts = endTimeStr.split(':');
+
+        DateTime examEndDateTime = DateTime(
+          examDate.year,
+          examDate.month,
+          examDate.day,
+          int.parse(parts[0]),
+          int.parse(parts[1]),
+        );
+
+        return examEndDateTime.isAfter(now);
+      }).map((exam) {
+        // Parse startTime string (assuming format "HH:mm")
+        String startTimeStr = exam['startTime'];
+        List<String> startParts = startTimeStr.split(':');
+        DateTime examDate = (exam['examDateTime'] as Timestamp).toDate();
+
+        DateTime examStartDateTime = DateTime(
+          examDate.year,
+          examDate.month,
+          examDate.day,
+          int.parse(startParts[0]),
+          int.parse(startParts[1]),
+        );
+
+        // Add parsed start time to the exam map for sorting
+        exam['_parsedStartTime'] = examStartDateTime;
+        return exam;
+      }).toList()
+        ..sort((a, b) {
+          // Sort by parsed start time (oldest first - ascending order)
+          return (a['_parsedStartTime'] as DateTime)
+              .compareTo(b['_parsedStartTime'] as DateTime);
+        })
+        ..forEach((exam) {
+          // Remove the temporary sorting field
+          exam.remove('_parsedStartTime');
+        });
     } catch (e) {
       print("Error fetching not finished exams: $e");
       throw e;

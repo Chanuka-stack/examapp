@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import '../components/audio_button.dart';
 import '../../services/timer.dart';
 import 'package:flutter_timer_countdown/flutter_timer_countdown.dart';
+import 'package:permission_handler/permission_handler.dart'; // Import permission handler
 
 class Qesutions extends StatefulWidget {
   final Map<String, dynamic> examData;
@@ -83,8 +84,6 @@ class _QesutionsState extends State<Qesutions> {
   }
 
   void _endExam() {
-    // This method is called in the timer countdown's onEnd but doesn't exist
-    // It should be changed to _submitExam which already exists
     if (mounted && !_isDisposed) {
       _submitExam();
     }
@@ -129,16 +128,45 @@ class _QesutionsState extends State<Qesutions> {
   Future<void> _initSpeechAndStart() async {
     if (!mounted) return;
 
-    await _speechService.initSpeech();
+    try {
+      // Initialize speech recognition
+      bool initialized = await _speechService.initSpeech();
+      if (!initialized) {
+        print('Failed to initialize speech recognition');
+        _speak('Failed to initialize speech recognition. Please try again.');
+        return;
+      }
 
-    if (!mounted) return;
+      // Check microphone permission
+      var status = await Permission.microphone.status;
+      if (status.isDenied) {
+        status = await Permission.microphone.request();
+        if (!status.isGranted) {
+          print('Microphone permission denied');
+          _speak('Microphone permission denied. Please enable it in settings.');
+          return;
+        }
+      }
 
-    setState(() {
-      _isInitialized = true;
-    });
+      if (!mounted) return;
 
-    // Start listening automatically
-    _startListening();
+      _safeSetState(() {
+        _isInitialized = true;
+      });
+
+      // Start listening only once after successful initialization
+      _startListening();
+
+      // Announce that voice commands are ready
+      Future.delayed(Duration(seconds: 2), () {
+        if (mounted && !_isDisposed) {
+          _speak('Voice recognition is ready. You can now use voice commands.');
+        }
+      });
+    } catch (e) {
+      print('Error initializing speech: $e');
+      _speak('Error initializing voice recognition. Please restart the app.');
+    }
   }
 
   Future<void> _loadExamQuestions(String examId) async {
@@ -156,10 +184,17 @@ class _QesutionsState extends State<Qesutions> {
   }
 
   void _startListening() async {
-    if (!mounted || _isDisposed) return;
+    if (!mounted || _isDisposed || _isListening) return;
 
     try {
-      await _speechService.startListening(onResult: _processResult);
+      bool started =
+          await _speechService.startListening(onResult: _processResult);
+      if (!started) {
+        print('Failed to start listening');
+        _restartListening();
+        return;
+      }
+
       setState(() {
         _isListening = true;
       });
@@ -167,74 +202,99 @@ class _QesutionsState extends State<Qesutions> {
       // Set up a timer to check if listening has stopped
       Future.delayed(Duration(seconds: 5), () {
         if (mounted && !_isDisposed && !_isListening) {
-          _speechService.checkAndRestartListening(_startListening);
+          _restartListening();
         }
       });
     } catch (e) {
       print('Error starting listening: $e');
-      // Try to restart listening after a delay
-      Future.delayed(Duration(seconds: 2), () {
-        if (mounted && !_isDisposed) {
-          _startListening();
-        }
-      });
+      _restartListening();
     }
+  }
+
+  void _restartListening() {
+    if (!mounted || _isDisposed) return;
+
+    Future.delayed(Duration(seconds: 2), () {
+      if (mounted && !_isDisposed && !_isListening) {
+        _startListening();
+      }
+    });
   }
 
   void _processResult(SpeechRecognitionResult result) {
     if (!mounted || _isDisposed) return;
 
-    setState(() {
+    _safeSetState(() {
       _lastWords = result.recognizedWords.toLowerCase();
+      print('Voice input (raw): ${result.recognizedWords}');
+      print('Voice input (lowercase): $_lastWords');
 
       // Process voice commands based on the current state
       if (_currentState == ExamState.ready) {
         if (_lastWords.contains('i am ready for exam') ||
             _lastWords.contains('start exam') ||
             _lastWords.contains('begin exam')) {
+          print('Command Matched: I am ready for exam');
           _goToFirstQuestion();
         } else if (_lastWords.contains('help') ||
             _lastWords.contains('commands')) {
+          print('Command Matched: Help or Commands');
           _speakVoiceCommands();
         }
       } else if (_currentState == ExamState.inProgress) {
+        if (_lastWords.contains('i am ready for exam') ||
+            _lastWords.contains('start exam') ||
+            _lastWords.contains('begin exam')) {
+          print('Command Matched: I am ready for exam');
+          _goToFirstQuestion();
+        }
         if (_lastWords.contains('next question') ||
             _lastWords.contains('go to next') ||
             _lastWords.contains('forward')) {
+          print('Command Matched: Next Question');
           _nextQuestion();
         } else if (_lastWords.contains('previous question') ||
             _lastWords.contains('go back') ||
             _lastWords.contains('back')) {
+          print('Command Matched: Previous Question');
           _previousQuestion();
         } else if (_lastWords.contains('repeat question') ||
             _lastWords.contains('say again') ||
             _lastWords.contains('what was the question')) {
+          print('Command Matched: Repeat Question');
           _repeatCurrentQuestion();
         } else if (_lastWords.contains('submit exam') ||
             _lastWords.contains('finish exam') ||
             _lastWords.contains('end exam')) {
+          print('Command Matched: Submit Exam');
           _submitExam();
         } else if (_lastWords.contains('which question') ||
             _lastWords.contains('what question') ||
             _lastWords.contains('question number') ||
             _lastWords.contains('where am i')) {
+          print('Command Matched: Which Question');
           _announceCurrentPosition();
         } else if (_lastWords.contains('help') ||
             _lastWords.contains('commands')) {
+          print('Command Matched: Help or Commands');
           _speakVoiceCommands();
         } else if (_lastWords.contains('start recording') ||
             _lastWords.contains('record answer')) {
+          print('Command Matched: Start Recording');
           _startAnswerRecording();
         } else if (_lastWords.contains('stop recording')) {
+          print('Command Matched: Stop Recording');
           _stopAnswerRecording();
         }
       } else if (_currentState == ExamState.ended) {
         if (_lastWords.contains('go to home') ||
             _lastWords.contains('home page') ||
             _lastWords.contains('go home')) {
+          print('Command Matched: Go to Home');
           _navigateToHome();
         } else if (_lastWords.contains('help') ||
             _lastWords.contains('commands')) {
+          print('Command Matched: Help or Commands');
           _speakVoiceCommands();
         }
       }
@@ -308,7 +368,7 @@ class _QesutionsState extends State<Qesutions> {
     if (!mounted || _isDisposed || !_isRecordingAnswer) return;
 
     final words = result.recognizedWords.toLowerCase();
-
+    print('Voice input: ${result.recognizedWords}');
     if (words.contains('stop recording')) {
       _stopAnswerRecording();
       return;
@@ -348,6 +408,12 @@ class _QesutionsState extends State<Qesutions> {
 
     // Save the answer
     _answers[answerKey] = _answerController.text;
+  }
+
+  void _safeSetState(VoidCallback fn) {
+    if (mounted && !_isDisposed) {
+      setState(fn);
+    }
   }
 
   @override
@@ -1158,6 +1224,18 @@ class _QesutionsState extends State<Qesutions> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          ElevatedButton(
+            onPressed: () {
+              _speechService.startListening(onResult: (result) {
+                _lastWords = result.recognizedWords.toLowerCase();
+                print('Voice input: ${result.recognizedWords}');
+                if (_lastWords.contains('next question')) {
+                  _nextQuestion();
+                }
+              });
+            },
+            child: Text("Test Speech"),
+          ),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [

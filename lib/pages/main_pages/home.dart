@@ -42,6 +42,7 @@ class _HomeState extends State<Home> {
 
   Future<List<Map<String, dynamic>>> _fetchUpcomingExams() async {
     try {
+      //final exams = await examFirebaseService.getUpcomingExams();
       final exams = await examFirebaseService.getUpcomingExams();
       setState(() {
         _upcomingExams = exams; // Update local list for other uses if needed

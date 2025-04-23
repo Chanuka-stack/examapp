@@ -133,7 +133,7 @@ class _QesutionsState extends State<Qesutions> {
 
     if (!mounted) return;
 
-    setState(() {
+    _safeSetState(() {
       _isInitialized = true;
     });
 
@@ -184,9 +184,9 @@ class _QesutionsState extends State<Qesutions> {
   void _processResult(SpeechRecognitionResult result) {
     if (!mounted || _isDisposed) return;
 
-    setState(() {
+    _safeSetState(() {
       _lastWords = result.recognizedWords.toLowerCase();
-
+      print('Voice input: ${result.recognizedWords}');
       // Process voice commands based on the current state
       if (_currentState == ExamState.ready) {
         if (_lastWords.contains('i am ready for exam') ||
@@ -198,7 +198,7 @@ class _QesutionsState extends State<Qesutions> {
           _speakVoiceCommands();
         }
       } else if (_currentState == ExamState.inProgress) {
-        if (_lastWords.contains('next question') ||
+        if (_lastWords.contains('next') && _lastWords.contains('question') ||
             _lastWords.contains('go to next') ||
             _lastWords.contains('forward')) {
           _nextQuestion();
@@ -308,7 +308,7 @@ class _QesutionsState extends State<Qesutions> {
     if (!mounted || _isDisposed || !_isRecordingAnswer) return;
 
     final words = result.recognizedWords.toLowerCase();
-
+    print('Voice input: ${result.recognizedWords}');
     if (words.contains('stop recording')) {
       _stopAnswerRecording();
       return;
@@ -348,6 +348,12 @@ class _QesutionsState extends State<Qesutions> {
 
     // Save the answer
     _answers[answerKey] = _answerController.text;
+  }
+
+  void _safeSetState(VoidCallback fn) {
+    if (mounted && !_isDisposed) {
+      setState(fn);
+    }
   }
 
   @override
@@ -1158,6 +1164,18 @@ class _QesutionsState extends State<Qesutions> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          ElevatedButton(
+            onPressed: () {
+              _speechService.startListening(onResult: (result) {
+                _lastWords = result.recognizedWords.toLowerCase();
+                print('Voice input: ${result.recognizedWords}');
+                if (_lastWords.contains('next question')) {
+                  _nextQuestion();
+                }
+              });
+            },
+            child: Text("Test Speech"),
+          ),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [

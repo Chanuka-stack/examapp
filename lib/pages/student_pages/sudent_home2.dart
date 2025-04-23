@@ -8,7 +8,7 @@ import 'package:speech_to_text/speech_recognition_result.dart';
 import '../../services/voice_recongintion_service.dart';
 import '../../services/text_to_speech_service.dart';
 import 'package:flutter_timer_countdown/flutter_timer_countdown.dart';
-import 'questions3.dart';
+import 'questions6.dart';
 
 class StudentHome extends StatefulWidget {
   StudentHome({Key? key}) : super(key: key);
@@ -32,13 +32,21 @@ class _StudentHomeState extends State<StudentHome> {
   bool _isLoading = true;
   bool _disposed = false; // Flag to track if widget is disposed
 
+  bool _ttsInitialized = false;
+
   @override
   void initState() {
     super.initState();
-    _initializeData();
+    /*_initializeData();
 
     _initSpeak();
-    _initSpeechAndStart();
+    _initSpeechAndStart();*/
+    _initializeData().then((_) {
+      if (mounted && !_disposed) {
+        _initSpeak();
+        _initSpeechAndStart();
+      }
+    });
   }
 
   @override
@@ -123,12 +131,35 @@ class _StudentHomeState extends State<StudentHome> {
     );
   }
 
-  Future<void> _initSpeak() async {
+  /*Future<void> _initSpeak() async {
     await ttsHelper.initTTS(
         language: "en-US", rate: 0.5, pitch: 1.0, volume: 1.0);
     if (mounted && !_disposed) {
       await ttsHelper.speak(
           "Hello, welcome to the Exam App. Your current exam is start at 9 am. Say Start Exam to Start the Exam");
+    }
+  }*/
+
+  Future<void> _initSpeak() async {
+    try {
+      // Initialize TTS only once
+      if (!_ttsInitialized) {
+        await ttsHelper.initTTS(
+            language: "en-US", rate: 0.5, pitch: 1.0, volume: 1.0);
+        _ttsInitialized = true;
+      }
+
+      // Only speak if widget is still mounted and not disposed
+      if (mounted && !_disposed) {
+        await ttsHelper.speak(
+            "Hello, welcome to the Exam App. Your current exam is start at  ${upcomingExams[0]['startTime']} . Say Start Exam to Start the Exam");
+      }
+    } catch (e) {
+      print('Error in _initSpeak: $e');
+      // You might want to retry after a delay
+      Future.delayed(Duration(seconds: 2), () {
+        if (mounted && !_disposed) _initSpeak();
+      });
     }
   }
 
