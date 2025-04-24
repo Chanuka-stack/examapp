@@ -11,7 +11,6 @@ import 'package:flutter/material.dart';
 import '../components/audio_button.dart';
 import '../../services/timer.dart';
 import 'package:flutter_timer_countdown/flutter_timer_countdown.dart';
-import 'package:permission_handler/permission_handler.dart'; // Import permission handler
 
 class Qesutions extends StatefulWidget {
   final Map<String, dynamic> examData;
@@ -26,6 +25,7 @@ enum ExamState { ready, inProgress, ended }
 
 class _QesutionsState extends State<Qesutions> {
   final TextToSpeechHelper _ttsHelper = TextToSpeechHelper();
+
   final SpeechRecognitionService _speechService = SpeechRecognitionService();
   final ExamFirebaseService _examService = ExamFirebaseService();
   final TextEditingController _answerController = TextEditingController();
@@ -37,6 +37,7 @@ class _QesutionsState extends State<Qesutions> {
   String _lastWords = '';
   bool _isListening = false;
   bool _isSubmitting = false;
+  bool _ttsInitialized = false;
 
   ExamState _currentState = ExamState.ready;
 
@@ -54,20 +55,44 @@ class _QesutionsState extends State<Qesutions> {
   @override
   void initState() {
     super.initState();
-    _initialize();
+    _initialize().then((_) {
+      if (mounted && !_isDisposed) {
+        _initSpeak();
+        _initSpeechAndStart();
+      }
+    });
+  }
+
+  Future<void> _initSpeechAndStart() async {
+    await _speechService.initSpeech();
+    if (!mounted || _isDisposed) return;
+
+    _safeSetState(() {
+      _isInitialized = true;
+    });
+
+    _startListening();
+  }
+
+  void _startListening() async {
+    if (!mounted || _isDisposed) return;
+
+    await _speechService.startListening(onResult: _processResult);
+    if (mounted && !_isDisposed) {
+      setState(() {});
+    }
+
+    // Safely schedule the check
+    Future.delayed(Duration(seconds: 5), () {
+      if (mounted && !_isDisposed) {
+        _speechService.checkAndRestartListening(_startListening);
+      }
+    });
   }
 
   Future<void> _initialize() async {
     _determineExamState();
     await _loadExamQuestions(widget.examData['id']);
-    await _initSpeechAndStart();
-
-    // Announce voice commands when app starts
-    Future.delayed(Duration(seconds: 3), () {
-      if (mounted && !_isDisposed) {
-        _speakVoiceCommands();
-      }
-    });
   }
 
   void _speakVoiceCommands() {
@@ -84,6 +109,8 @@ class _QesutionsState extends State<Qesutions> {
   }
 
   void _endExam() {
+    // This method is called in the timer countdown's onEnd but doesn't exist
+    // It should be changed to _submitExam which already exists
     if (mounted && !_isDisposed) {
       _submitExam();
     }
@@ -125,50 +152,6 @@ class _QesutionsState extends State<Qesutions> {
     );
   }
 
-  Future<void> _initSpeechAndStart() async {
-    if (!mounted) return;
-
-    try {
-      // Initialize speech recognition
-      bool initialized = await _speechService.initSpeech();
-      if (!initialized) {
-        print('Failed to initialize speech recognition');
-        _speak('Failed to initialize speech recognition. Please try again.');
-        return;
-      }
-
-      // Check microphone permission
-      var status = await Permission.microphone.status;
-      if (status.isDenied) {
-        status = await Permission.microphone.request();
-        if (!status.isGranted) {
-          print('Microphone permission denied');
-          _speak('Microphone permission denied. Please enable it in settings.');
-          return;
-        }
-      }
-
-      if (!mounted) return;
-
-      _safeSetState(() {
-        _isInitialized = true;
-      });
-
-      // Start listening only once after successful initialization
-      _startListening();
-
-      // Announce that voice commands are ready
-      Future.delayed(Duration(seconds: 2), () {
-        if (mounted && !_isDisposed) {
-          _speak('Voice recognition is ready. You can now use voice commands.');
-        }
-      });
-    } catch (e) {
-      print('Error initializing speech: $e');
-      _speak('Error initializing voice recognition. Please restart the app.');
-    }
-  }
-
   Future<void> _loadExamQuestions(String examId) async {
     try {
       final data = await _examService.getExamWithQuestions(examId);
@@ -183,36 +166,26 @@ class _QesutionsState extends State<Qesutions> {
     }
   }
 
-  void _startListening() async {
-    if (!mounted || _isDisposed || _isListening) return;
-
+  Future<void> _initSpeak() async {
     try {
-      await _speechService.startListening(onResult: _processResult);
-
-      setState(() {
-        _isListening = true;
-      });
-
-      // Set up a timer to check if listening has stopped
-      Future.delayed(Duration(seconds: 5), () {
-        if (mounted && !_isDisposed && !_isListening) {
-          _restartListening();
-        }
-      });
-    } catch (e) {
-      print('Error starting listening: $e');
-      _restartListening();
-    }
-  }
-
-  void _restartListening() {
-    if (!mounted || _isDisposed) return;
-
-    Future.delayed(Duration(seconds: 2), () {
-      if (mounted && !_isDisposed && !_isListening) {
-        _startListening();
+      // Initialize TTS only once
+      if (!_ttsInitialized) {
+        await _ttsHelper.initTTS(
+            language: "en-US", rate: 0.5, pitch: 1.0, volume: 1.0);
+        _ttsInitialized = true;
       }
-    });
+
+      // Only speak if widget is still mounted and not disposed
+      if (mounted && !_isDisposed) {
+        _speakVoiceCommands();
+      }
+    } catch (e) {
+      print('Error in _initSpeak: $e');
+      // You might want to retry after a delay
+      Future.delayed(Duration(seconds: 2), () {
+        if (mounted && !_isDisposed) _initSpeak();
+      });
+    }
   }
 
   void _processResult(SpeechRecognitionResult result) {
@@ -220,75 +193,55 @@ class _QesutionsState extends State<Qesutions> {
 
     _safeSetState(() {
       _lastWords = result.recognizedWords.toLowerCase();
-      print('Voice input (raw): ${result.recognizedWords}');
-      print('Voice input (lowercase): $_lastWords');
-
+      print('Voice input: ${result.recognizedWords}');
       // Process voice commands based on the current state
       if (_currentState == ExamState.ready) {
         if (_lastWords.contains('i am ready for exam') ||
             _lastWords.contains('start exam') ||
             _lastWords.contains('begin exam')) {
-          print('Command Matched: I am ready for exam');
           _goToFirstQuestion();
         } else if (_lastWords.contains('help') ||
             _lastWords.contains('commands')) {
-          print('Command Matched: Help or Commands');
           _speakVoiceCommands();
         }
       } else if (_currentState == ExamState.inProgress) {
-        if (_lastWords.contains('i am ready for exam') ||
-            _lastWords.contains('start exam') ||
-            _lastWords.contains('begin exam')) {
-          print('Command Matched: I am ready for exam');
-          _goToFirstQuestion();
-        }
-        if (_lastWords.contains('next question') ||
+        if (_lastWords.contains('next') && _lastWords.contains('question') ||
             _lastWords.contains('go to next') ||
             _lastWords.contains('forward')) {
-          print('Command Matched: Next Question');
           _nextQuestion();
         } else if (_lastWords.contains('previous question') ||
             _lastWords.contains('go back') ||
             _lastWords.contains('back')) {
-          print('Command Matched: Previous Question');
           _previousQuestion();
         } else if (_lastWords.contains('repeat question') ||
             _lastWords.contains('say again') ||
             _lastWords.contains('what was the question')) {
-          print('Command Matched: Repeat Question');
           _repeatCurrentQuestion();
         } else if (_lastWords.contains('submit exam') ||
             _lastWords.contains('finish exam') ||
             _lastWords.contains('end exam')) {
-          print('Command Matched: Submit Exam');
           _submitExam();
         } else if (_lastWords.contains('which question') ||
             _lastWords.contains('what question') ||
             _lastWords.contains('question number') ||
             _lastWords.contains('where am i')) {
-          print('Command Matched: Which Question');
           _announceCurrentPosition();
         } else if (_lastWords.contains('help') ||
             _lastWords.contains('commands')) {
-          print('Command Matched: Help or Commands');
           _speakVoiceCommands();
         } else if (_lastWords.contains('start recording') ||
             _lastWords.contains('record answer')) {
-          print('Command Matched: Start Recording');
           _startAnswerRecording();
         } else if (_lastWords.contains('stop recording')) {
-          print('Command Matched: Stop Recording');
           _stopAnswerRecording();
         }
       } else if (_currentState == ExamState.ended) {
         if (_lastWords.contains('go to home') ||
             _lastWords.contains('home page') ||
             _lastWords.contains('go home')) {
-          print('Command Matched: Go to Home');
           _navigateToHome();
         } else if (_lastWords.contains('help') ||
             _lastWords.contains('commands')) {
-          print('Command Matched: Help or Commands');
           _speakVoiceCommands();
         }
       }
@@ -826,7 +779,21 @@ class _QesutionsState extends State<Qesutions> {
   }
 
   // Create a unified speaking method to avoid code duplication
-  Future<void> _speak(String text) => _speakText(text);
+  //Future<void> _speak(String text) => _speakText(text);
+
+  Future<void> _speak(String text) async {
+    // 1. Stop listening before TTS
+    await _speechService.stopListening();
+
+    // 2. Speak the text
+    await _ttsHelper.speak(text);
+
+    // 3. Optionally, wait a short moment to ensure TTS is fully finished
+    await Future.delayed(Duration(milliseconds: 200));
+
+    // 4. Restart listening
+    _speechService.startListening(onResult: _processResult);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1219,29 +1186,10 @@ class _QesutionsState extends State<Qesutions> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           ElevatedButton(
-            onPressed: () async {
-              // First stop any ongoing listening
-              await _speechService.stopListening();
-
-              // Small delay to ensure previous session is properly closed
-              await Future.delayed(Duration(milliseconds: 300));
-
-              // Make sure speech is initialized
-              if (!_speechService.speechEnabled) {
-                bool initialized = await _speechService.initSpeech();
-                if (!initialized) {
-                  print('Failed to initialize speech');
-                  return;
-                }
-              }
-
-              print('Starting speech recognition...');
-              await _speechService.startListening(onResult: (result) {
-                print('Speech result: ${result.recognizedWords}');
-                setState(() {
-                  _lastWords = result.recognizedWords.toLowerCase();
-                });
-
+            onPressed: () {
+              _speechService.startListening(onResult: (result) {
+                _lastWords = result.recognizedWords.toLowerCase();
+                print('Voice input: ${result.recognizedWords}');
                 if (_lastWords.contains('next question')) {
                   _nextQuestion();
                 }
@@ -1513,11 +1461,12 @@ class _QesutionsState extends State<Qesutions> {
     );
   }
 
+  bool _hasSpokenExamEnded = false;
   Widget _buildExamEndedScreen() {
-    Future.microtask(() {
+    if (!_hasSpokenExamEnded) {
+      _hasSpokenExamEnded = true;
       _speak('Your exam has been submitted');
-    });
-
+    }
     return Container(
       padding: EdgeInsets.all(16),
       child: Column(

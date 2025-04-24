@@ -19,81 +19,79 @@ class SpeechRecognitionService {
   bool get speechEnabled => _speechEnabled;
   String get lastWords => _lastWords;
 
+  // Initialize speech recognition and handle errors/permissions
   Future<bool> initSpeech() async {
     try {
       _speechEnabled = await _speechToText.initialize(
         onStatus: (status) {
-          print('Speech status: $status');
+          print('[SpeechRecognition] Status: $status');
           // Attempt to restart if stopped unexpectedly
           if (status == 'notListening' || status == 'done') {
             _speechToText.cancel();
+            _speechEnabled = true;
           }
         },
         onError: (errorNotification) {
-          print('Speech error: $errorNotification');
+          print('[SpeechRecognition] Error: $errorNotification');
           // Reset state on error
           _speechToText.cancel();
           _speechEnabled = false;
         },
         finalTimeout: Duration(seconds: 5),
       );
+      if (!_speechEnabled) {
+        print('[SpeechRecognition] Initialization failed. Check microphone permissions.');
+      } else {
+        print('[SpeechRecognition] Initialized successfully.');
+      }
       return _speechEnabled;
     } catch (e) {
-      print('Error initializing speech: $e');
+      print('[SpeechRecognition] Exception during initialization: $e');
       _speechEnabled = false;
       return false;
     }
   }
 
-  Future<bool> startListening({
+  // Start listening for speech and handle errors robustly
+  Future<void> startListening({
     required Function(SpeechRecognitionResult) onResult,
   }) async {
     if (!_speechEnabled) {
-      print('Speech not initialized');
-      return false;
+      print('[SpeechRecognition] Not initialized. Call initSpeech() first.');
+      return;
     }
-
     try {
-      bool started = await _speechToText.listen(
+      await _speechToText.listen(
         onResult: (result) {
           _lastWords = result.recognizedWords;
           onResult(result);
         },
-        listenFor: Duration(minutes: 5), // Extended listening time
-        pauseFor: Duration(seconds: 10), // Longer pause detection
+        listenFor: Duration(seconds: 30), // Extended listening time
+        pauseFor: Duration(seconds: 3), // Longer pause detection
         listenMode: ListenMode.confirmation, // Better for command recognition
         cancelOnError: false, // Don't cancel on errors
         partialResults: true, // Get partial results for faster response
       );
-
-      if (started) {
-        // Set up auto-restart when listening stops
-        _speechToText.statusListener = (status) {
-          if ((status == 'notListening' || status == 'done') && _speechEnabled) {
-            Future.delayed(Duration(milliseconds: 500), () {
-              if (!_speechToText.isListening && _speechEnabled) {
-                startListening(onResult: onResult);
-              }
-            });
-          }
-        };
-      }
-
-      return started;
+      print('[SpeechRecognition] Listening started.');
     } catch (e) {
-      print('Error starting speech recognition: $e');
-      return false;
+      print('[SpeechRecognition] Error starting listening: $e');
     }
   }
 
+  // Stop listening and log
   Future<void> stopListening() async {
-    await _speechToText.stop();
+    try {
+      await _speechToText.stop();
+      print('[SpeechRecognition] Listening stopped.');
+    } catch (e) {
+      print('[SpeechRecognition] Error during stop: $e');
+    }
   }
 
   // Check if speech has stopped and restart if needed
   void checkAndRestartListening(Function startListeningCallback) {
     if (!_speechEnabled) return;
-    
+
     if (!_speechToText.isListening) {
       print('Speech recognition stopped, attempting to restart...');
       Future.delayed(Duration(seconds: 1), () {

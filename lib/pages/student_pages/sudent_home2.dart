@@ -8,7 +8,7 @@ import 'package:speech_to_text/speech_recognition_result.dart';
 import '../../services/voice_recongintion_service.dart';
 import '../../services/text_to_speech_service.dart';
 import 'package:flutter_timer_countdown/flutter_timer_countdown.dart';
-import 'questions6.dart';
+import 'questions3 copy.dart';
 
 class StudentHome extends StatefulWidget {
   StudentHome({Key? key}) : super(key: key);
@@ -502,6 +502,8 @@ class _StudentHomeState extends State<StudentHome> {
                           if (mounted && !_disposed) {
                             Future.delayed(Duration(milliseconds: 100),
                                 () async {
+                              ttsHelper.stop();
+                              _speechService.stopListening();
                               if (mounted && !_disposed) {
                                 /*Navigator.pushReplacement(
                                   context,

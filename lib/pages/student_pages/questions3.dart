@@ -772,7 +772,21 @@ class _QesutionsState extends State<Qesutions> {
   }
 
   // Create a unified speaking method to avoid code duplication
-  Future<void> _speak(String text) => _speakText(text);
+  //Future<void> _speak(String text) => _speakText(text);
+
+  Future<void> _speak(String text) async {
+    if (!mounted || _isDisposed) return;
+
+    await _speechService.stopListening(); // Make sure STT is off
+    await _ttsHelper.speak(text); // Wait for TTS to finish
+    if (!mounted || _isDisposed) return;
+
+    Future.delayed(Duration(milliseconds: 500), () {
+      if (mounted && !_isDisposed && !_isRecordingAnswer) {
+        _startListening(); // Restart STT only after TTS is done
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
